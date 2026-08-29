@@ -1,26 +1,26 @@
 # 为 mavlink 做贡献
 
-We follow the [Github flow](https://guides.github.com/introduction/flow/) development model.
+We follow the [GitHub flow](https://guides.github.com/introduction/flow/) development model.
 
 Contributions are divided into several categories:
 
 - Complicated changes that require significant review should be initiated using an RFC pull request in [mavlink/rfcs](https://github.com/mavlink/rfcs).
   This is primarily intended for new microservice interface definitions, as these require discussion of both messages and message sequences (state machines) \(examples: parameter or mission protocol\). Depending on the scope of the change, it may also be required when _modifying_ a microservice.
 - Less complex changes should be submitted as a PRs to the [mavlink/mavlink](https://github.com/mavlink/mavlink) repository. This includes message additions/changes that do not affect a state machine.
-- Changes to mavgen generator code should be submitted as PRs to the [ArduPilot/Pymavlink](https://github.com/ArduPilot/pymavlink) repository.
+- Changes to mavgen generator code should be submitted as PRs to the [ArduPilot/pymavlink](https://github.com/ArduPilot/pymavlink) repository.
 
 The sections below explain how to contribute to each category and how to raise a pull request.
 
 ## How to Contribute Simple Changes
 
 - Open a pull request against the specification repository: [https://github.com/mavlink/mavlink](https://github.com/mavlink/mavlink)
-- Reach out to the community on [Discord](https://discord.com/channels/1022170275984457759/1022185868317966458) and the [mailing list](https://groups.google.com/forum/#!forum/mavlink) to raise awareness
+- Reach out to the community on Discord ([join server](https://discord.gg/dronecode), then use [#mavlink-general](https://discord.com/channels/1022170275984457759/1022185868317966458) channel) and the [mailing list](https://groups.google.com/forum/#!forum/mavlink) to raise awareness
 - 通过进一步支持拉动请求来解决关注问题
 
 ## How to Contribute Complex Changes
 
 - Open a pull request against the RFC repository containing a new RFC number [https://github.com/mavlink/rfcs](https://github.com/mavlink/rfcs) and use the template in the 0000 RFC.
-- Reach out to the community on [Discord](https://discord.com/channels/1022170275984457759/1022185868317966458) and the [mailing list](https://groups.google.com/forum/#!forum/mavlink) to raise awareness
+- Reach out to the community on Discord ([join server](https://discord.gg/dronecode), then use [#mavlink-general](https://discord.com/channels/1022170275984457759/1022185868317966458) channel) and the [mailing list](https://groups.google.com/forum/#!forum/mavlink) to raise awareness
 - 通过进一步支持拉动请求来解决关注问题
 
 ## How to Contribute to Mavgen
