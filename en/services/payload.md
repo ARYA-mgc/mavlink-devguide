@@ -35,6 +35,7 @@ Use the [commands for known payload types](#payload-specific-commands) where pos
 | <a id="MAV_CMD_DO_SET_SERVO"></a>[MAV_CMD_DO_SET_SERVO](../messages/common.md#MAV_CMD_DO_SET_SERVO)          | Sets a servo, identified by a specified instance number, to a specified PWM value.                                                                                                                              |
 | <a id="MAV_CMD_DO_SET_RELAY"></a>[MAV_CMD_DO_SET_RELAY](../messages/common.md#MAV_CMD_DO_SET_RELAY)          | Set a specified relay instance on or off.                                                                                                                                                                       |
 | <a id="MAV_CMD_DO_REPEAT_RELAY"></a>[MAV_CMD_DO_REPEAT_RELAY](../messages/common.md#MAV_CMD_DO_REPEAT_RELAY) | Cycle a relay on and off for a desired number of cycles with a desired period.                                                                                                                                  |
+| <a id="RELAY_STATUS"></a>[RELAY_STATUS](../messages/common.md#RELAY_STATUS)                                  | Reports the on/off state of relays (as controlled by `MAV_CMD_DO_SET_RELAY`). Streaming should be requested using [MAV_CMD_SET_MESSAGE_INTERVAL](../messages/common.md#MAV_CMD_SET_MESSAGE_INTERVAL).           |
 
 ::: info
 **Implementations:**
@@ -59,7 +60,7 @@ These commands can be used to deploy a payload at a specific location, controlli
 **Implementations:**
 
 - [MAV_CMD_NAV_PAYLOAD_PLACE](#MAV_CMD_NAV_PAYLOAD_PLACE) is implemented in ArduPilot only, and can be used in missions.
-- [MAV_CMD_PAYLOAD_PREPARE_DEPLOY](../messages/common.md#MAV_CMD_PAYLOAD_PREPARE_DEPLOY) and [MAV_CMD_PAYLOAD_CONTROL_DEPLOY](../messages/common.md#MAV_CMD_PAYLOAD_PREPARE_DEPLOY) are not supported on any known flight stack.
+- [MAV_CMD_PAYLOAD_PREPARE_DEPLOY](../messages/common.md#MAV_CMD_PAYLOAD_PREPARE_DEPLOY) and [MAV_CMD_PAYLOAD_CONTROL_DEPLOY](../messages/common.md#MAV_CMD_PAYLOAD_CONTROL_DEPLOY) are not supported on any known flight stack.
   They are deprecated and should not be used.
 
 :::

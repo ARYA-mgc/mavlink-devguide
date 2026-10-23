@@ -48,7 +48,7 @@ The main tags are listed below (all are optional):
 - `version`: The minor version number for the release, as included in the [HEARTBEAT](../messages/common.md#HEARTBEAT message) `mavlink_version` field.
   - For dialects that `include` **common.xml** the tag should be removed so that the `version` from **common.xml** is used (`version` from top level file will be used if specified).
   - For private dialects you can use whatever version you like.
-- `dialect`: This number is unique for your dialect. You should use: TBD <!-- how are these allocated -->
+- `dialect`: Optional, and should be omitted. This is not used by the generator toolchain.
 - [enums](#enum-definition-enums): Dialect-specific enums can be defined in this block (if none are defined in the file, the block is optional/can be removed).
 - [messages](#message-definition-messages): Dialect-specific messages can be defined in this block (if none are defined in the file, the block is optional/can be removed).
 
@@ -139,7 +139,7 @@ For example, see [MAV_CMD_NAV_PAYLOAD_PLACE](../messages/common.md#MAV_CMD_NAV_P
 ```xml
 <enum name="MAV_CMD">
 ....
-      <entry value="94" name="MAV_CMD_NAV_PAYLOAD_PLACE" hasLocation="true" isDestination="true">
+      <entry value="94" name="MAV_CMD_NAV_PAYLOAD_PLACE" hasLocation="true" isDestination="true" mission="true" command="true">
         <description>Descend and place payload. Vehicle moves to specified location, descends until it detects a hanging payload has reached the ground, and then releases the payload. If ground is not detected before the reaching the maximum descent value (param1), the command will complete without releasing the payload.</description>
         <param index="1" label="Max Descent" units="m" minValue="0">Maximum distance to descend.</param>
         <param index="2">Empty</param>
@@ -158,13 +158,18 @@ Attributes:
 - `name` (mandatory): The name of the command.
   This is a string of capitalized, underscore-separated words, prefixed with `MAV_CMD_`.
 - `value` (mandatory): The command number.
-- `missionOnly`: A boolean (default true). Apply with value `true` if the MAV_COMMAND only "makes sense" in a mission.
-  For example, the fence mission commands could not possibly be useful in a command.
-- One (but not both) of:
-  - `hasLocation`: A boolean (default true) that provides a hint to a GCS that the entry should be displayed as a "standalone" location - rather than as a destination on the flight path.
-    Apply for MAV_CMDs that contain lat/lon/alt location information in param 5, 6, and 7 values but which are not on the vehicle path (e.g.: [MAV_CMD_DO_SET_ROI_LOCATION](../messages/common.md#MAV_CMD_DO_SET_ROI_LOCATION)).
-  - `isDestination`: A boolean (default true) that provides a hint to a GCS that the entry is a location that should be displayed as a point on the flight path.
-    Apply for MAV_CMD that contain lat/lon/alt location information in their param 5, 6, and 7 values, and that set a path/destination (e.g.: [MAV_CMD_NAV_WAYPOINT](../messages/common.md#MAV_CMD_NAV_WAYPOINT) and [MAV_CMD_NAV_LAND](../messages/common.md#MAV_CMD_NAV_LAND)).
+- `hasLocation`: A boolean (default `false`) that indicates parm 5/6/7 contain lat/lon/alt information.
+- `isDestination`: A boolean (default `false`) that indicates whether an entry is on a flight path, such as [MAV_CMD_NAV_WAYPOINT](../messages/common.md#MAV_CMD_NAV_WAYPOINT) in a mission.
+  If `false` the entry is not a destination: it would be used for commands like [MAV_CMD_DO_SET_ROI_LOCATION](../messages/common.md#MAV_CMD_DO_SET_ROI_LOCATION).
+  `hasLocation` should be applied if this is `true`.
+- `hasAltitudeOnly`: A boolean (default `false`) that indicates the entry has altitude information in param 7 but no position information params 5 and 6 (e.g. [MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT](../messages/common.md#MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT)).
+  Mutually exclusive with `hasLocation`.
+- `mission`: A boolean (default `false`) that indicates the entry can be used in a mission plan ([Mission Protocol](../services/mission.md)).
+- `fence`: A boolean (default `false`) that indicates the entry can be used in a geofence plan.
+- `rally`: A boolean (default `false`) that indicates the entry can be used in a rally point plan.
+- `command`: A boolean (default `false`) that indicates the entry can be sent using the [Command Protocol](../services/command.md).
+
+  Any combination of `mission`, `fence`, `rally` and `command` may be set.
 
 Nested elements:
 
@@ -193,15 +198,23 @@ Attributes:
 - `maxValue` (optional): Maximum value for the param (inclusive).
 - `multiplier` (optional): Multiply by this value to get the unscaled original value.
   This is primarily intended for specifying any scaling applied to unitless values, where scaling is not encoded in the `units`.
-- `reserved` (optional): Boolean indicating whether param is reserved for future use.
-  If the attributes is not declared, then implicitly `reserved="False"`.
+- `reserved` (optional): Boolean indicating whether the param is reserved for future use.
+  All unused params are implicitly reserved whether or not this value is present.
 
   ::: tip
   See [Defining XML Enums/Messages > Reserved/Undefined Parameters](../guide/define_xml_element.md#reserved) for more information.
   :::
 
-- `default` - Default value for the `param`
-  (primarily used for `reserved` params, where the value is `0` or `NaN`).
+- `default` - Default value for the `param`.
+
+  For unused params in new commands the default ("sentinel") value should always be:
+  - Params 1–4 and 7: `<param index="N" reserved="true" default="NaN"/>`
+  - Params 5 and 6: ``<param index="5" reserved="true">Reserved. INT32_MAX (`COMMAND_INT` or `MISSION_ITEM_INT`) or NaN (COMMAND_LONG).</param>``
+
+  ::: warning
+  Some existing implementations use `0` as the default sentinel value for some or all existing params.
+  New commands and implementations must use the values listed above.
+  :::
 
 Elements
 
@@ -367,7 +380,7 @@ The tag is usually applied like this (including the comment):
 Attributes:
 
 - `since` (optional): A datestamp indicating when the corresponding element was proposed.
-  This should be formatted as such as `YYYYMM`
+  This should be formatted as such as `YYYY-MM`
   This hints to the maintainer team when WIP elements should be reviewed for addition or removal.
 
 Nested elements
@@ -414,7 +427,7 @@ An entity should be marked as deprecated only when the key MAVLink stakeholders 
 For example, where we show that `MAV_CMD_REQUEST_PROTOCOL_VERSION` is deprecated, but it's removal has not yet been planned.
 
 ```xml
-      <entry value="519" name="MAV_CMD_REQUEST_PROTOCOL_VERSION" hasLocation="false" isDestination="false">
+      <entry value="519" name="MAV_CMD_REQUEST_PROTOCOL_VERSION">
         <deprecated since="2025-11" replaced_by="MAV_CMD_REQUEST_MESSAGE"/>
 ```
 

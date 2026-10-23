@@ -14,9 +14,10 @@ function getEntryArray(parent) {
   //}
 
   if (Array.isArray(parent)) {
-    //This parent is an array, so return it (it is the sidebar top level)
+    //Unexpected: callers always pass objects. If passed an array, return it as-is.
     returnEntryArray = parent;
     //console.log("isArray");
+    return returnEntryArray;
   }
   parent.items = parent?.items ? parent.items : [];
   //console.log("isNotArray");
@@ -116,7 +117,7 @@ function parseGitbookSidebarToVuepress(sidebarContent, lang) {
       link_title = link_title.replace("\\_", "_");
 
       //set indent_divider level (easier to think in levels, numbers of zero prefixes)
-      if ((indent_divider == 0) & (indent_level > 0.0)) {
+      if ((indent_divider == 0) && (indent_level > 0.0)) {
         indent_divider = indent_level;
       }
       if (indent_divider > 0) {

@@ -37,9 +37,9 @@ span.warning {
 
 Type | Defined | Included
 --- | --- | ---
-[Messages](#messages) | 231 | 3
-[Enums](#enumerated-types) | 149 | 9
-[Commands](#mav_commands) | 167 | 0
+[Messages](#messages) | 232 | 3
+[Enums](#enumerated-types) | 151 | 9
+[Commands](#mav_commands) | 171 | 0
 
 The following sections list all entities in the dialect (both included and defined in this file).
 
@@ -69,9 +69,9 @@ onboard_control_sensors_present | `uint32_t` | | [MAV_SYS_STATUS_SENSOR](#MAV_SY
 onboard_control_sensors_enabled | `uint32_t` | | [MAV_SYS_STATUS_SENSOR](#MAV_SYS_STATUS_SENSOR) | Bitmap showing which onboard controllers and sensors are enabled:  Value of 0: not enabled. Value of 1: enabled. 
 onboard_control_sensors_health | `uint32_t` | | [MAV_SYS_STATUS_SENSOR](#MAV_SYS_STATUS_SENSOR) | Bitmap showing which onboard controllers and sensors have an error (or are operational). Value of 0: error. Value of 1: healthy. 
 load | `uint16_t` | d% | | Maximum usage in percent of the mainloop time. Values: [0-1000] - should always be below 1000 
-voltage_battery | `uint16_t` | mV | invalid:UINT16_MAX | Battery voltage, UINT16_MAX: Voltage not sent by autopilot 
-current_battery | `int16_t` | cA | invalid:-1 | Battery current, -1: Current not sent by autopilot 
-battery_remaining | `int8_t` | % | invalid:-1 | Battery energy remaining, -1: Battery remaining energy not sent by autopilot 
+voltage_battery | `uint16_t` | mV | invalid:UINT16_MAX | Battery voltage, UINT16_MAX: Voltage not sent by autopilot. Value is ambiguous on multi-battery systems. [BATTERY_STATUS](#BATTERY_STATUS) is a recommended alternative. 
+current_battery | `int16_t` | cA | invalid:-1 | Battery current, -1: Current not sent by autopilot. Value may overflow/rollover for very high currents (> 327.67A). Value is ambiguous on multi-battery systems. [BATTERY_STATUS](#BATTERY_STATUS) is a recommended alternative. 
+battery_remaining | `int8_t` | % | invalid:-1 | Battery energy remaining, -1: Battery remaining energy not sent by autopilot. Value is ambiguous on multi-battery systems. [BATTERY_STATUS](#BATTERY_STATUS) is a recommended alternative. 
 drop_rate_comm | `uint16_t` | c% | | Communication drop rate, (UART, I2C, SPI, CAN), dropped packets on all links (packets that were corrupted on reception on the MAV) 
 errors_comm | `uint16_t` | | | Communication errors (UART, I2C, SPI, CAN), dropped packets on all links (packets that were corrupted on reception on the MAV) 
 errors_count1 | `uint16_t` | | | Autopilot-specific errors 
@@ -98,7 +98,9 @@ time_unix_usec | `uint64_t` | us | Timestamp (UNIX epoch time).
 time_boot_ms | `uint32_t` | ms | Timestamp (time since system boot). 
 
 
-### PING (4) {#PING}
+### PING (4) — [SUP] {#PING}
+
+<span class="warning">**SUPERSEDED:** Replaced By TIMESYNC (2011-08) — To be removed / merged with TIMESYNC)</span>
 
 A ping message either requesting or responding to a ping. This allows to measure the system latencies, including serial port, radio modem and UDP connections. The ping microservice is documented at https://mavlink.io/en/services/ping.html
 
@@ -142,9 +144,9 @@ Field Name | Type | Description
 key | `char[32]` | key 
 
 
-### LINK_NODE_STATUS (8) — [WIP] {#LINK_NODE_STATUS}
+### LINK_NODE_STATUS (8) — [DEP] {#LINK_NODE_STATUS}
 
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
+<span class="warning">**DEPRECATED:** Replaced By Nothing (2026-09) — Partially implemented PX4 v1.15 to v1.18 but no consumers and not fit for purpose.)</span>
 
 Status generated in each node in the communication chain and injected into MAVLink stream.
 
@@ -163,14 +165,16 @@ messages_received | `uint32_t` | | Messages received (estimated from counting se
 messages_lost | `uint32_t` | | Messages lost (estimated from counting seq) 
 
 
-### SET_MODE (11) {#SET_MODE}
+### SET_MODE (11) — [SUP] {#SET_MODE}
 
-Set the system mode, as defined by enum [MAV_MODE](#MAV_MODE). There is no target component id as the mode is by definition for the overall aircraft, not only for one component.
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_DO_SET_MODE](#MAV_CMD_DO_SET_MODE) (2015-12) — Use [COMMAND_LONG](#COMMAND_LONG) with [MAV_CMD_DO_SET_MODE](#MAV_CMD_DO_SET_MODE) instead)</span>
+
+Set the system mode, as defined by enum [MAV_MODE_FLAG](#MAV_MODE_FLAG). There is no target component id as the mode is by definition for the overall aircraft, not only for one component.
 
 Field Name | Type | Values | Description
 --- | --- | --- | ---
 target_system | `uint8_t` | | The system setting the mode 
-base_mode | `uint8_t` | [MAV_MODE](#MAV_MODE) | The new base mode. 
+base_mode | `uint8_t` | [MAV_MODE_FLAG](#MAV_MODE_FLAG) | The new base mode. 
 custom_mode | `uint32_t` | | The new autopilot-specific mode. This field can be ignored by an autopilot. 
 
 
@@ -182,7 +186,7 @@ Field Name | Type | Description
 --- | --- | ---
 target_system | `uint8_t` | System ID 
 target_component | `uint8_t` | Component ID 
-param_id | `char[16]` | Onboard parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string 
+param_id | `char[16]` | Onboard parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string. Encoded as 7-bit ASCII. 
 param_index | `int16_t` | Parameter index. Send -1 to use the param ID field as identifier (else the param id will be ignored) 
 
 
@@ -202,7 +206,7 @@ Emit the value of a onboard parameter. The inclusion of param_count and param_in
 
 Field Name | Type | Values | Description
 --- | --- | --- | ---
-param_id | `char[16]` | | Onboard parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string 
+param_id | `char[16]` | | Onboard parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string. Encoded as 7-bit ASCII. 
 param_value | `float` | | Onboard parameter value 
 param_type | `uint8_t` | [MAV_PARAM_TYPE](#MAV_PARAM_TYPE) | Onboard parameter type. 
 param_count | `uint16_t` | | Total number of onboard parameters 
@@ -219,7 +223,7 @@ Field Name | Type | Values | Description
 --- | --- | --- | ---
 target_system | `uint8_t` | | System ID 
 target_component | `uint8_t` | | Component ID 
-param_id | `char[16]` | | Onboard parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string 
+param_id | `char[16]` | | Onboard parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string. Encoded as 7-bit ASCII. 
 param_value | `float` | | Onboard parameter value 
 param_type | `uint8_t` | [MAV_PARAM_TYPE](#MAV_PARAM_TYPE) | Onboard parameter type. 
 
@@ -299,7 +303,7 @@ zgyro | `int16_t` | | Angular speed around Z axis (raw)
 xmag | `int16_t` | | X Magnetic field (raw) 
 ymag | `int16_t` | | Y Magnetic field (raw) 
 zmag | `int16_t` | | Z Magnetic field (raw) 
-<span class='ext'>id</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | Id. Ids are numbered from 0 and map to IMUs numbered from 1 (e.g. IMU1 will have a message with id=0)<br>Messages with same value are from the same source (instance). 
+<span class='ext'>id</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | Id. Ids are numbered from 0 and map to IMUs numbered from 1 (e.g. IMU1 will have a message with id=0)<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 <span class='ext'>temperature</span> <a href='#mav2_extension_field'>++</a> | `int16_t` | cdegC | Temperature, 0: IMU does not provide temperature values. If the IMU is at 0C it must send 1 (0.01C). 
 
 
@@ -438,7 +442,7 @@ Superseded by [ACTUATOR_OUTPUT_STATUS](#ACTUATOR_OUTPUT_STATUS). The RAW values 
 Field Name | Type | Units | Description
 --- | --- | --- | ---
 time_usec | `uint32_t` | us | Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. 
-port | `uint8_t` | | Servo output port (set of 8 outputs = 1 port). Flight stacks running on Pixhawk should use: 0 = MAIN, 1 = AUX.<br>Messages with same value are from the same source (instance). 
+port | `uint8_t` | | Servo output port (set of 8 outputs = 1 port). Flight stacks running on Pixhawk should use: 0 = MAIN, 1 = AUX.<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 servo1_raw | `uint16_t` | us | Servo output 1 value 
 servo2_raw | `uint16_t` | us | Servo output 2 value 
 servo3_raw | `uint16_t` | us | Servo output 3 value 
@@ -525,7 +529,9 @@ seq | `uint16_t` | | Sequence
 <span class='ext'>mission_type</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | [MAV_MISSION_TYPE](#MAV_MISSION_TYPE) | Mission type. 
 
 
-### MISSION_SET_CURRENT (41) {#MISSION_SET_CURRENT}
+### MISSION_SET_CURRENT (41) — [SUP] {#MISSION_SET_CURRENT}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_DO_SET_MISSION_CURRENT](#MAV_CMD_DO_SET_MISSION_CURRENT) (2022-08)</span>
 
 Set the mission item with sequence number seq as the current item and emit [MISSION_CURRENT](#MISSION_CURRENT) (whether or not the mission number changed).
 If a mission is currently being executed, the system will continue to this new mission item on the shortest path, skipping any intermediate mission items.
@@ -616,7 +622,9 @@ type | `uint8_t` | [MAV_MISSION_RESULT](#MAV_MISSION_RESULT) | Mission result.
 <span class='ext'>opaque_id</span> <a href='#mav2_extension_field'>++</a> | `uint32_t` | invalid:0 | Id of new on-vehicle mission, fence, or rally point plan (on upload to vehicle).<br>The id is calculated and returned by a vehicle when a new plan is uploaded by a GCS.<br>The only requirement on the id is that it must change when there is any change to the on-vehicle plan type (there is no requirement that the id be globally unique).<br>0 on download from the vehicle to the GCS (on download the ID is set in [MISSION_COUNT](#MISSION_COUNT)).<br>0 if plan ids are not supported.<br>The current on-vehicle plan ids are streamed in `[MISSION_CURRENT](#MISSION_CURRENT)`, allowing a GCS to determine if any part of the plan has changed and needs to be re-uploaded. 
 
 
-### SET_GPS_GLOBAL_ORIGIN (48) {#SET_GPS_GLOBAL_ORIGIN}
+### SET_GPS_GLOBAL_ORIGIN (48) — [SUP] {#SET_GPS_GLOBAL_ORIGIN}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_DO_SET_GLOBAL_ORIGIN](#MAV_CMD_DO_SET_GLOBAL_ORIGIN) (2025-04)</span>
 
 Sets the GPS coordinates of the vehicle local origin (0,0,0) position. Vehicle should emit [GPS_GLOBAL_ORIGIN](#GPS_GLOBAL_ORIGIN) irrespective of whether the origin is changed. This enables transform between the local coordinate frame and the global (GPS) coordinate frame, which may be necessary when (for example) indoor and outdoor settings are connected and the MAV should move from in- to outdoor.
 
@@ -649,7 +657,7 @@ Field Name | Type | Description
 --- | --- | ---
 target_system | `uint8_t` | System ID 
 target_component | `uint8_t` | Component ID 
-param_id | `char[16]` | Onboard parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string 
+param_id | `char[16]` | Onboard parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string. Encoded as 7-bit ASCII. 
 param_index | `int16_t` | Parameter index. Send -1 to use the param ID field as identifier (else the param id will be ignored), send -2 to disable any existing map for this rc_channel_index. 
 parameter_rc_channel_index | `uint8_t` | Index of parameter RC channel. Not equal to the RC channel id. Typically corresponds to a potentiometer-knob on the RC. 
 param_value0 | `float` | Initial parameter value 
@@ -799,7 +807,9 @@ chan18_raw | `uint16_t` | us | RC channel 18 value.
 rssi | `uint8_t` | | Receive signal strength indicator in device-dependent units/scale. Values: [0-254], UINT8_MAX: invalid/unknown. 
 
 
-### REQUEST_DATA_STREAM (66) {#REQUEST_DATA_STREAM}
+### REQUEST_DATA_STREAM (66) — [SUP] {#REQUEST_DATA_STREAM}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_SET_MESSAGE_INTERVAL](#MAV_CMD_SET_MESSAGE_INTERVAL)  (2015-08)</span>
 
 Request a data stream.
 
@@ -812,7 +822,9 @@ req_message_rate | `uint16_t` | Hz | | The requested message rate
 start_stop | `uint8_t` | | | 1 to start sending, 0 to stop sending. 
 
 
-### DATA_STREAM (67) {#DATA_STREAM}
+### DATA_STREAM (67) — [SUP] {#DATA_STREAM}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MESSAGE_INTERVAL](#MESSAGE_INTERVAL) (2015-08)</span>
 
 Data stream status information.
 
@@ -1086,7 +1098,7 @@ Field Name | Type | Units | Values | Description
 time_boot_ms | `uint32_t` | ms | | Timestamp (time since system boot). The rationale for the timestamp in the setpoint is to allow the system to compensate for the transport delay of the setpoint. This allows the system to compensate processing latency. 
 target_system | `uint8_t` | | | System ID 
 target_component | `uint8_t` | | | Component ID 
-coordinate_frame | `uint8_t` | | [MAV_FRAME](#MAV_FRAME) | Valid options are: [MAV_FRAME_GLOBAL](#MAV_FRAME_GLOBAL) = 0, [MAV_FRAME_GLOBAL_RELATIVE_ALT](#MAV_FRAME_GLOBAL_RELATIVE_ALT) = 3, [MAV_FRAME_GLOBAL_TERRAIN_ALT](#MAV_FRAME_GLOBAL_TERRAIN_ALT) = 10 ([MAV_FRAME_GLOBAL_INT](#MAV_FRAME_GLOBAL_INT), [MAV_FRAME_GLOBAL_RELATIVE_ALT_INT](#MAV_FRAME_GLOBAL_RELATIVE_ALT_INT), [MAV_FRAME_GLOBAL_TERRAIN_ALT_INT](#MAV_FRAME_GLOBAL_TERRAIN_ALT_INT) are allowed synonyms, but have been deprecated) 
+coordinate_frame | `uint8_t` | | [MAV_FRAME](#MAV_FRAME) | Valid options are: [MAV_FRAME_GLOBAL](#MAV_FRAME_GLOBAL) = 0, [MAV_FRAME_GLOBAL_RELATIVE_ALT](#MAV_FRAME_GLOBAL_RELATIVE_ALT) = 3, [MAV_FRAME_GLOBAL_TERRAIN_ALT](#MAV_FRAME_GLOBAL_TERRAIN_ALT) = 10 ([MAV_FRAME_GLOBAL_INT](#MAV_FRAME_GLOBAL_INT), [MAV_FRAME_GLOBAL_RELATIVE_ALT_INT](#MAV_FRAME_GLOBAL_RELATIVE_ALT_INT), [MAV_FRAME_GLOBAL_TERRAIN_ALT_INT](#MAV_FRAME_GLOBAL_TERRAIN_ALT_INT) are allowed synonyms, but have been superseded) 
 type_mask | `uint16_t` | | [POSITION_TARGET_TYPEMASK](#POSITION_TARGET_TYPEMASK) | Bitmap to indicate which dimensions should be ignored by the vehicle. 
 lat_int | `int32_t` | degE7 | | Latitude in WGS84 frame 
 lon_int | `int32_t` | degE7 | | Longitude in WGS84 frame 
@@ -1108,7 +1120,7 @@ Reports the current commanded vehicle position, velocity, and acceleration as sp
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
 time_boot_ms | `uint32_t` | ms | | Timestamp (time since system boot). The rationale for the timestamp in the setpoint is to allow the system to compensate for the transport delay of the setpoint. This allows the system to compensate processing latency. 
-coordinate_frame | `uint8_t` | | [MAV_FRAME](#MAV_FRAME) | Valid options are: [MAV_FRAME_GLOBAL](#MAV_FRAME_GLOBAL) = 0, [MAV_FRAME_GLOBAL_RELATIVE_ALT](#MAV_FRAME_GLOBAL_RELATIVE_ALT) = 3, [MAV_FRAME_GLOBAL_TERRAIN_ALT](#MAV_FRAME_GLOBAL_TERRAIN_ALT) = 10 ([MAV_FRAME_GLOBAL_INT](#MAV_FRAME_GLOBAL_INT), [MAV_FRAME_GLOBAL_RELATIVE_ALT_INT](#MAV_FRAME_GLOBAL_RELATIVE_ALT_INT), [MAV_FRAME_GLOBAL_TERRAIN_ALT_INT](#MAV_FRAME_GLOBAL_TERRAIN_ALT_INT) are allowed synonyms, but have been deprecated) 
+coordinate_frame | `uint8_t` | | [MAV_FRAME](#MAV_FRAME) | Valid options are: [MAV_FRAME_GLOBAL](#MAV_FRAME_GLOBAL) = 0, [MAV_FRAME_GLOBAL_RELATIVE_ALT](#MAV_FRAME_GLOBAL_RELATIVE_ALT) = 3, [MAV_FRAME_GLOBAL_TERRAIN_ALT](#MAV_FRAME_GLOBAL_TERRAIN_ALT) = 10 ([MAV_FRAME_GLOBAL_INT](#MAV_FRAME_GLOBAL_INT), [MAV_FRAME_GLOBAL_RELATIVE_ALT_INT](#MAV_FRAME_GLOBAL_RELATIVE_ALT_INT), [MAV_FRAME_GLOBAL_TERRAIN_ALT_INT](#MAV_FRAME_GLOBAL_TERRAIN_ALT_INT) are allowed synonyms, but have been superseded) 
 type_mask | `uint16_t` | | [POSITION_TARGET_TYPEMASK](#POSITION_TARGET_TYPEMASK) | Bitmap to indicate which dimensions should be ignored by the vehicle. 
 lat_int | `int32_t` | degE7 | | Latitude in WGS84 frame 
 lon_int | `int32_t` | degE7 | | Longitude in WGS84 frame 
@@ -1138,7 +1150,9 @@ pitch | `float` | rad | Pitch
 yaw | `float` | rad | Yaw 
 
 
-### HIL_STATE (90) {#HIL_STATE}
+### HIL_STATE (90) — [SUP] {#HIL_STATE}
+
+<span class="warning">**SUPERSEDED:** Replaced By [HIL_STATE_QUATERNION](#HIL_STATE_QUATERNION) (2013-07) — Suffers from missing airspeed fields and singularities due to Euler angles)</span>
 
 Sent from simulation to autopilot. This packet is useful for high throughput applications such as hardware in the loop simulations.
 
@@ -1318,7 +1332,7 @@ diff_pressure | `float` | hPa | | Differential pressure
 pressure_alt | `float` | | | Altitude calculated from pressure 
 temperature | `float` | degC | | Temperature 
 fields_updated | `uint16_t` | | [HIGHRES_IMU_UPDATED_FLAGS](#HIGHRES_IMU_UPDATED_FLAGS) | Bitmap for fields that have updated since last message 
-<span class='ext'>id</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | | Id. Ids are numbered from 0 and map to IMUs numbered from 1 (e.g. IMU1 will have a message with id=0)<br>Messages with same value are from the same source (instance). 
+<span class='ext'>id</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | | Id. Ids are numbered from 0 and map to IMUs numbered from 1 (e.g. IMU1 will have a message with id=0)<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 
 
 ### OPTICAL_FLOW_RAD (106) {#OPTICAL_FLOW_RAD}
@@ -1328,7 +1342,7 @@ Optical flow from an angular rate flow sensor (e.g. PX4FLOW or mouse sensor)
 Field Name | Type | Units | Description
 --- | --- | --- | ---
 time_usec | `uint64_t` | us | Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. 
-sensor_id | `uint8_t` | | Sensor ID<br>Messages with same value are from the same source (instance). 
+sensor_id | `uint8_t` | | Sensor ID<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 integration_time_us | `uint32_t` | us | Integration time. Divide integrated_x and integrated_y by the integration time to obtain average flow. The integration time also indicates the. 
 integrated_x | `float` | rad | Flow around X axis (Sensor RH rotation about the X axis induces a positive flow. Sensor linear motion along the positive Y axis induces a negative flow.) 
 integrated_y | `float` | rad | Flow around Y axis (Sensor RH rotation about the Y axis induces a positive flow. Sensor linear motion along the positive X axis induces a positive flow.) 
@@ -1616,7 +1630,9 @@ target_system | `uint8_t` | System ID
 target_component | `uint8_t` | Component ID 
 
 
-### GPS_INJECT_DATA (123) {#GPS_INJECT_DATA}
+### GPS_INJECT_DATA (123) — [SUP] {#GPS_INJECT_DATA}
+
+<span class="warning">**SUPERSEDED:** Replaced By [GPS_RTCM_DATA](#GPS_RTCM_DATA) (2022-05)</span>
 
 Data for injecting into the onboard GPS (used for DGPS)
 
@@ -1778,7 +1794,7 @@ min_distance | `uint16_t` | cm | | Minimum distance the sensor can measure
 max_distance | `uint16_t` | cm | | Maximum distance the sensor can measure 
 current_distance | `uint16_t` | cm | | Current distance reading 
 type | `uint8_t` | | [MAV_DISTANCE_SENSOR](#MAV_DISTANCE_SENSOR) | Type of distance sensor. 
-id | `uint8_t` | | | Onboard ID of the sensor<br>Messages with same value are from the same source (instance). 
+id | `uint8_t` | | | Onboard ID of the sensor<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 orientation | `uint8_t` | | [MAV_SENSOR_ORIENTATION](#MAV_SENSOR_ORIENTATION) | Direction the sensor faces. downward-facing: [ROTATION_PITCH_270](#ROTATION_PITCH_270), upward-facing: [ROTATION_PITCH_90](#ROTATION_PITCH_90), backward-facing: [ROTATION_PITCH_180](#ROTATION_PITCH_180), forward-facing: [ROTATION_NONE](#ROTATION_NONE), left-facing: [ROTATION_YAW_90](#ROTATION_YAW_90), right-facing: [ROTATION_YAW_270](#ROTATION_YAW_270) 
 covariance | `uint8_t` | cm^2 | invalid:UINT8_MAX | Measurement variance. Max standard deviation is 6cm. UINT8_MAX if unknown. 
 <span class='ext'>horizontal_fov</span> <a href='#mav2_extension_field'>++</a> | `float` | rad | invalid:0 | Horizontal Field of View (angle) where the distance measurement is valid and the field of view is known. Otherwise this is set to 0. 
@@ -1933,19 +1949,19 @@ temperature | `int16_t` | cdegC | Absolute pressure temperature
 
 Current motion information from a designated system
 
-Field Name | Type | Units | Description
---- | --- | --- | ---
-timestamp | `uint64_t` | ms | Timestamp (time since system boot). 
-est_capabilities | `uint8_t` | | bit positions for tracker reporting capabilities (POS = 0, VEL = 1, ACCEL = 2, ATT + RATES = 3) 
-lat | `int32_t` | degE7 | Latitude (WGS84) 
-lon | `int32_t` | degE7 | Longitude (WGS84) 
-alt | `float` | m | Altitude (MSL) 
-vel | `float[3]` | m/s | target velocity (0,0,0) for unknown 
-acc | `float[3]` | m/s/s | linear target acceleration (0,0,0) for unknown 
-attitude_q | `float[4]` | | (0 0 0 0 for unknown) 
-rates | `float[3]` | | (0 0 0 for unknown) 
-position_cov | `float[3]` | | eph epv 
-custom_state | `uint64_t` | | button states or switches of a tracker device 
+Field Name | Type | Units | Values | Description
+--- | --- | --- | --- | ---
+timestamp | `uint64_t` | ms | | Timestamp (time since system boot). 
+est_capabilities | `uint8_t` | | [FOLLOW_TARGET_CAP_FLAGS](#FOLLOW_TARGET_CAP_FLAGS) | Bitmask indicating which fields in this message contain valid data. 
+lat | `int32_t` | degE7 | | Latitude (WGS84) 
+lon | `int32_t` | degE7 | | Longitude (WGS84) 
+alt | `float` | m | | Altitude (MSL) 
+vel | `float[3]` | m/s | invalid:[0] | Target velocity in [MAV_FRAME_LOCAL_NED](#MAV_FRAME_LOCAL_NED) frame. (0,0,0) for unknown. 
+acc | `float[3]` | m/s/s | invalid:[0] | Target linear acceleration in [MAV_FRAME_LOCAL_NED](#MAV_FRAME_LOCAL_NED) frame. (0,0,0) for unknown. 
+attitude_q | `float[4]` | | invalid:[0] | Target orientation as a quaternion rotating from [MAV_FRAME_BODY_FRD](#MAV_FRAME_BODY_FRD) to [MAV_FRAME_LOCAL_NED](#MAV_FRAME_LOCAL_NED) (w, x, y, z order, zero-rotation is [1, 0, 0, 0]). (0, 0, 0, 0) for unknown. 
+rates | `float[3]` | rad/s | invalid:[0] | Target angular rates (roll, pitch, yaw) in [MAV_FRAME_BODY_FRD](#MAV_FRAME_BODY_FRD) frame. (0,0,0) for unknown. 
+position_cov | `float[3]` | | | eph epv 
+custom_state | `uint64_t` | | | button states or switches of a tracker device 
 
 
 ### CONTROL_SYSTEM_STATE (146) {#CONTROL_SYSTEM_STATE}
@@ -1979,12 +1995,12 @@ Battery information. Updates GCS with flight controller battery status. Smart ba
 
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
-id | `uint8_t` | | | Battery ID<br>Messages with same value are from the same source (instance). 
+id | `uint8_t` | | | Battery ID<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 battery_function | `uint8_t` | | [MAV_BATTERY_FUNCTION](#MAV_BATTERY_FUNCTION) | Function of the battery 
 type | `uint8_t` | | [MAV_BATTERY_TYPE](#MAV_BATTERY_TYPE) | Type (chemistry) of the battery 
 temperature | `int16_t` | cdegC | invalid:INT16_MAX | Temperature of the battery. INT16_MAX for unknown temperature. 
 voltages | `uint16_t[10]` | mV | invalid:[UINT16_MAX] | Battery voltage of cells 1 to 10 (see voltages_ext for cells 11-14). Cells in this field above the valid cell count for this battery should have the UINT16_MAX value. If individual cell voltages are unknown or not measured for this battery, then the overall battery voltage should be filled in cell 0, with all others set to UINT16_MAX. If the voltage of the battery is greater than (UINT16_MAX - 1), then cell 0 should be set to (UINT16_MAX - 1), and cell 1 to the remaining voltage. This can be extended to multiple cells if the total voltage is greater than 2 * (UINT16_MAX - 1). 
-current_battery | `int16_t` | cA | invalid:-1 | Battery current, -1: autopilot does not measure the current 
+current_battery | `int16_t` | cA | invalid:-1 | Battery current, -1: autopilot does not measure the current. Value may overflow/rollover for very high currents (> 327.67A) 
 current_consumed | `int32_t` | mAh | invalid:-1 | Consumed charge, -1: autopilot does not provide consumption estimate 
 energy_consumed | `int32_t` | hJ | invalid:-1 | Consumed energy, -1: autopilot does not provide energy consumption estimate 
 battery_remaining | `int8_t` | % | invalid:-1 | Remaining battery energy. Values: [0-100], -1: autopilot does not estimate the remaining battery. 
@@ -2034,7 +2050,7 @@ size_y | `float` | rad | | Size of target along y-axis
 <span class='ext'>z</span> <a href='#mav2_extension_field'>++</a> | `float` | m | | Z Position of the landing target in [MAV_FRAME](#MAV_FRAME) 
 <span class='ext'>q</span> <a href='#mav2_extension_field'>++</a> | `float[4]` | | | Quaternion of landing target orientation (w, x, y, z order, zero-rotation is 1, 0, 0, 0) 
 <span class='ext'>type</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | [LANDING_TARGET_TYPE](#LANDING_TARGET_TYPE) | Type of landing target 
-<span class='ext'>position_valid</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | default:0 [MAV_BOOL](#MAV_BOOL) | Position fields (x, y, z, q, type) contain valid target position information ([MAV_BOOL_FALSE](#MAV_BOOL_FALSE): invalid values). Values not equal to 0 or 1 are invalid. 
+<span class='ext'>position_valid</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | default:0 [MAV_BOOL](#MAV_BOOL) | Position fields (x, y, z, q, type) contain valid target position information ([MAV_BOOL_TRUE](#MAV_BOOL_TRUE)). A value of [MAV_BOOL_FALSE](#MAV_BOOL_FALSE) indicates the position information is invalid. Values not equal to 0 or 1 are invalid. 
 
 
 ### FENCE_STATUS (162) {#FENCE_STATUS}
@@ -2056,7 +2072,7 @@ Reports results of completed compass calibration. Sent until [MAG_CAL_ACK](#MAG_
 
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
-compass_id | `uint8_t` | | | Compass being calibrated.<br>Messages with same value are from the same source (instance). 
+compass_id | `uint8_t` | | | Compass being calibrated.<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 cal_mask | `uint8_t` | | | Bitmask of compasses being calibrated. 
 cal_status | `uint8_t` | | [MAG_CAL_STATUS](#MAG_CAL_STATUS) | Calibration Status. 
 autosaved | `uint8_t` | | | 0=requires a [MAV_CMD_DO_ACCEPT_MAG_CAL](#MAV_CMD_DO_ACCEPT_MAG_CAL), 1=saved to parameters. 
@@ -2145,11 +2161,11 @@ GPS sensor input message.  This is a raw sensor value sent by the GPS. This is N
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
 time_usec | `uint64_t` | us | | Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. 
-gps_id | `uint8_t` | | | ID of the GPS for multiple GPS inputs<br>Messages with same value are from the same source (instance). 
+gps_id | `uint8_t` | | | ID of the GPS for multiple GPS inputs<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 ignore_flags | `uint16_t` | | [GPS_INPUT_IGNORE_FLAGS](#GPS_INPUT_IGNORE_FLAGS) | Bitmap indicating which GPS input flags fields to ignore.  All other fields must be provided. 
 time_week_ms | `uint32_t` | ms | | GPS time (from start of GPS week) 
 time_week | `uint16_t` | | | GPS week number 
-fix_type | `uint8_t` | | | 0-1: no fix, 2: 2D fix, 3: 3D fix. 4: 3D with DGPS. 5: 3D with RTK 
+fix_type | `uint8_t` | | [GPS_FIX_TYPE](#GPS_FIX_TYPE) | GNSS fix type 
 lat | `int32_t` | degE7 | | Latitude (WGS84) 
 lon | `int32_t` | degE7 | | Longitude (WGS84) 
 alt | `float` | m | | Altitude (MSL). Positive for up. 
@@ -2162,7 +2178,7 @@ speed_accuracy | `float` | m/s | | GPS speed accuracy
 horiz_accuracy | `float` | m | | GPS horizontal accuracy 
 vert_accuracy | `float` | m | | GPS vertical accuracy 
 satellites_visible | `uint8_t` | | | Number of satellites visible. 
-<span class='ext'>yaw</span> <a href='#mav2_extension_field'>++</a> | `uint16_t` | cdeg | | Yaw of vehicle relative to Earth's North, zero means not available, use 36000 for north 
+<span class='ext'>yaw</span> <a href='#mav2_extension_field'>++</a> | `uint16_t` | cdeg | invalid:0 | Yaw of vehicle relative to Earth's North, zero means not available, use 36000 for north 
 
 
 ### GPS_RTCM_DATA (233) {#GPS_RTCM_DATA}
@@ -2176,7 +2192,9 @@ len | `uint8_t` | bytes | data length
 data | `uint8_t[180]` | | RTCM message (may be fragmented) 
 
 
-### HIGH_LATENCY (234) {#HIGH_LATENCY}
+### HIGH_LATENCY (234) — [SUP] {#HIGH_LATENCY}
+
+<span class="warning">**SUPERSEDED:** Replaced By [HIGH_LATENCY2](#HIGH_LATENCY2) (2020-10)</span>
 
 Message appropriate for high latency connections like Iridium
 
@@ -2266,7 +2284,7 @@ The position must be set automatically by the system during the takeoff, and may
 The global and local positions encode the position in the respective coordinate frames, while the q parameter encodes the orientation of the surface.
 Under normal conditions it describes the heading and terrain slope, which can be used by the aircraft to adjust the approach.
 The approach 3D vector describes the point to which the system should fly in normal flight mode and then perform a landing sequence along the vector.
-Note: this message can be requested by sending the [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) with param1=242 (or the deprecated [MAV_CMD_GET_HOME_POSITION](#MAV_CMD_GET_HOME_POSITION) command).
+Note: this message can be requested by sending the [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) with param1=242.
 
 Field Name | Type | Units | Description
 --- | --- | --- | ---
@@ -2283,7 +2301,9 @@ approach_z | `float` | m | Local Z position of the end of the approach vector. M
 <span class='ext'>time_usec</span> <a href='#mav2_extension_field'>++</a> | `uint64_t` | us | Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. 
 
 
-### SET_HOME_POSITION (243) {#SET_HOME_POSITION}
+### SET_HOME_POSITION (243) — [SUP] {#SET_HOME_POSITION}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_DO_SET_HOME](#MAV_CMD_DO_SET_HOME) (2022-02) — The command protocol version ([MAV_CMD_DO_SET_HOME](#MAV_CMD_DO_SET_HOME)) allows a GCS to detect when setting the home position has failed.)</span>
 
 Sets the home position.
 The home position is the default position that the system will return to and land on.
@@ -2313,7 +2333,6 @@ approach_z | `float` | m | Local Z position of the end of the approach vector. M
 
 The interval between messages for a particular MAVLink message ID.
 This message is sent in response to the [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) command with param1=244 (this message) and param2=message_id (the id of the message for which the interval is required).
-It may also be sent in response to [MAV_CMD_GET_MESSAGE_INTERVAL](#MAV_CMD_GET_MESSAGE_INTERVAL).
 This interface replaces [DATA_STREAM](#DATA_STREAM).
 
 Field Name | Type | Units | Description
@@ -2348,7 +2367,7 @@ hor_velocity | `uint16_t` | cm/s | invalid:UINT16_MAX | The horizontal velocity
 ver_velocity | `int16_t` | cm/s | invalid:INT16_MAX | The vertical velocity. Positive is up 
 callsign | `char[9]` | | | The callsign, 8+null 
 emitter_type | `uint8_t` | | [ADSB_EMITTER_TYPE](#ADSB_EMITTER_TYPE) | ADSB emitter type. 
-tslc | `uint8_t` | s | | Time since last communication from the remote vehicle, in seconds. 
+tslc | `uint8_t` | s | | Time since last communication. This is the age of the ADS-B information in this message, in seconds. 
 flags | `uint16_t` | | [ADSB_FLAGS](#ADSB_FLAGS) | Bitmap to indicate various statuses including valid data fields 
 squawk | `uint16_t` | | | Squawk code. Note that the code is in decimal: e.g. 7700 (general emergency) is encoded as binary 0b0001_1110_0001_0100, not(!) as 0b0000_111_111_000_000 
 
@@ -2399,7 +2418,7 @@ To debug something using a named 3D vector.
 
 Field Name | Type | Units | Description
 --- | --- | --- | ---
-name | `char[10]` | | Name<br>Messages with same value are from the same source (instance). 
+name | `char[10]` | | Name<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 time_usec | `uint64_t` | us | Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. 
 x | `float` | | x 
 y | `float` | | y 
@@ -2413,7 +2432,7 @@ Send a key-value pair as float. The use of this message is discouraged for norma
 Field Name | Type | Units | Description
 --- | --- | --- | ---
 time_boot_ms | `uint32_t` | ms | Timestamp (time since system boot). 
-name | `char[10]` | | Name of the debug variable<br>Messages with same value are from the same source (instance). 
+name | `char[10]` | | Name of the debug variable<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 value | `float` | | Floating point value 
 
 
@@ -2424,7 +2443,7 @@ Send a key-value pair as integer. The use of this message is discouraged for nor
 Field Name | Type | Units | Description
 --- | --- | --- | ---
 time_boot_ms | `uint32_t` | ms | Timestamp (time since system boot). 
-name | `char[10]` | | Name of the debug variable<br>Messages with same value are from the same source (instance). 
+name | `char[10]` | | Name of the debug variable<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 value | `int32_t` | | Signed integer value 
 
 
@@ -2474,7 +2493,9 @@ last_change_ms | `uint32_t` | ms | Time of last change of button state.
 state | `uint8_t` | | Bitmap for state of buttons. 
 
 
-### PLAY_TUNE (258) {#PLAY_TUNE}
+### PLAY_TUNE (258) — [SUP] {#PLAY_TUNE}
+
+<span class="warning">**SUPERSEDED:** Replaced By [PLAY_TUNE_V2](#PLAY_TUNE_V2) (2019-10) — New version explicitly defines format. More interoperable.)</span>
 
 Control vehicle tone generation (buzzer).
 
@@ -2529,7 +2550,7 @@ Information about a storage medium. This message is sent in response to a reques
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
 time_boot_ms | `uint32_t` | ms | | Timestamp (time since system boot). 
-storage_id | `uint8_t` | | | Storage ID (1 for first, 2 for second, etc.)<br>Messages with same value are from the same source (instance). 
+storage_id | `uint8_t` | | | Storage ID (1 for first, 2 for second, etc.)<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 storage_count | `uint8_t` | | | Number of storage devices 
 status | `uint8_t` | | [STORAGE_STATUS](#STORAGE_STATUS) | Status of storage 
 total_capacity | `float` | MiB | | Total capacity. If storage is not ready ([STORAGE_STATUS_READY](#STORAGE_STATUS_READY)) value will be ignored. 
@@ -2565,7 +2586,7 @@ Information about a captured image. This is emitted every time a message is capt
 [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) can be used to (re)request this message for a specific sequence number or range of sequence numbers:
 [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE).param2 indicates the sequence number the first image to send, or set to -1 to send the message for all sequence numbers.
 [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE).param3 is used to specify a range of messages to send:
-set to 0 (default) to send just the the message for the sequence number in param 2,
+set to 0 (default) to send just the message for the sequence number in param 2,
 set to -1 to send the message for the sequence number in param 2 and all the following sequence numbers,
 set to the sequence number of the final message in the range.
 
@@ -2602,7 +2623,9 @@ flight_uuid | `uint64_t` | | Flight number. Note, field is misnamed UUID.
 <span class='ext'>landing_time</span> <a href='#mav2_extension_field'>++</a> | `uint32_t` | ms | Timestamp at landing (in ms since system boot). Set to 0 at boot and on arming. 
 
 
-### MOUNT_ORIENTATION (265) {#MOUNT_ORIENTATION}
+### MOUNT_ORIENTATION (265) — [SUP] {#MOUNT_ORIENTATION}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW](#MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW) (2020-01) — This message is being superseded by [MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW](#MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW). The message can still be used to communicate with legacy gimbals implementing it.)</span>
 
 Orientation of a mount
 
@@ -2660,7 +2683,7 @@ Information about video stream. It may be requested using [MAV_CMD_REQUEST_MESSA
 
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
-stream_id | `uint8_t` | | | Video Stream ID (1 for first, 2 for second, etc.)<br>Messages with same value are from the same source (instance). 
+stream_id | `uint8_t` | | | Video Stream ID (1 for first, 2 for second, etc.)<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 count | `uint8_t` | | | Number of streams available. 
 type | `uint8_t` | | [VIDEO_STREAM_TYPE](#VIDEO_STREAM_TYPE) | Type of stream. 
 flags | `uint16_t` | | [VIDEO_STREAM_STATUS_FLAGS](#VIDEO_STREAM_STATUS_FLAGS) | Bitmap of stream status flags. 
@@ -2671,9 +2694,10 @@ bitrate | `uint32_t` | bits/s | | Bit rate.
 rotation | `uint16_t` | deg | | Video image rotation clockwise. 
 hfov | `uint16_t` | deg | | Horizontal Field of view. 
 name | `char[32]` | | | Stream name. 
-uri | `char[160]` | | | Video stream URI (TCP or RTSP URI ground station should connect to) or port number (UDP port ground station should listen to). 
+uri | `char[160]` | | | Video stream URI (TCP, RTSP or SRT URI ground station should connect to) or port number (UDP port ground station should listen to). 
 <span class='ext'>encoding</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | [VIDEO_STREAM_ENCODING](#VIDEO_STREAM_ENCODING) | Encoding of stream. 
 <span class='ext'>camera_device_id</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | default:0 min:0 max:6 | Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id). 
+<span class='ext'>vfov</span> <a href='#mav2_extension_field'>++</a> | `uint16_t` | cdeg | invalid:0 | Vertical field of view (0 if unknown). 
 
 
 ### VIDEO_STREAM_STATUS (270) {#VIDEO_STREAM_STATUS}
@@ -2682,7 +2706,7 @@ Information about the status of a video stream. It may be requested using [MAV_C
 
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
-stream_id | `uint8_t` | | | Video Stream ID (1 for first, 2 for second, etc.)<br>Messages with same value are from the same source (instance). 
+stream_id | `uint8_t` | | | Video Stream ID (1 for first, 2 for second, etc.)<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 flags | `uint16_t` | | [VIDEO_STREAM_STATUS_FLAGS](#VIDEO_STREAM_STATUS_FLAGS) | Bitmap of stream status flags 
 framerate | `float` | Hz | | Frame rate 
 resolution_h | `uint16_t` | pix | | Horizontal resolution 
@@ -2691,11 +2715,12 @@ bitrate | `uint32_t` | bits/s | | Bit rate
 rotation | `uint16_t` | deg | | Video image rotation clockwise 
 hfov | `uint16_t` | deg | | Horizontal Field of view 
 <span class='ext'>camera_device_id</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | default:0 min:0 max:6 | Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id). 
+<span class='ext'>vfov</span> <a href='#mav2_extension_field'>++</a> | `uint16_t` | cdeg | invalid:0 | Vertical field of view (0 if unknown). 
 
 
 ### CAMERA_FOV_STATUS (271) {#CAMERA_FOV_STATUS}
 
-Information about the field of view of a camera. Can be requested with a [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) command.
+Information about the field of view of a camera. Can be requested with a [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) command, where param2 indicates the video stream id: 0 for all streams, 1 for first, 2 for second, etc. A camera with multiple streams that have different fields of view should send one message per stream, with stream_id set.
 
 Field Name | Type | Units | Description
 --- | --- | --- | ---
@@ -2710,6 +2735,7 @@ q | `float[4]` | | Quaternion of camera orientation (w, x, y, z order, zero-rota
 hfov | `float` | deg | Horizontal field of view (NaN if unknown). 
 vfov | `float` | deg | Vertical field of view (NaN if unknown). 
 <span class='ext'>camera_device_id</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id). 
+<span class='ext'>stream_id</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | Video Stream ID (1 for first, 2 for second, etc.), as in [VIDEO_STREAM_INFORMATION](#VIDEO_STREAM_INFORMATION). 0 if unknown or the field of view is not specific to a stream.<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 
 
 ### CAMERA_TRACKING_IMAGE_STATUS (275) {#CAMERA_TRACKING_IMAGE_STATUS}
@@ -2760,7 +2786,7 @@ Camera absolute thermal range. This can be streamed when the associated [VIDEO_S
 Field Name | Type | Units | Description
 --- | --- | --- | ---
 time_boot_ms | `uint32_t` | ms | Timestamp (time since system boot). 
-stream_id | `uint8_t` | | Video Stream ID (1 for first, 2 for second, etc.)<br>Messages with same value are from the same source (instance). 
+stream_id | `uint8_t` | | Video Stream ID (1 for first, 2 for second, etc.)<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 camera_device_id | `uint8_t` | | Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id). 
 max | `float` | degC | Temperature max. 
 max_point_x | `float` | | Temperature max point x value (normalized 0..1, 0 is left, 1 is right), NAN if unknown. 
@@ -2778,7 +2804,7 @@ Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
 time_boot_ms | `uint32_t` | ms | | Timestamp (time since system boot). 
 cap_flags | `uint32_t` | | [GIMBAL_MANAGER_CAP_FLAGS](#GIMBAL_MANAGER_CAP_FLAGS) | Bitmap of gimbal capability flags. 
-gimbal_device_id | `uint8_t` | | | Gimbal device ID that this gimbal manager is responsible for. Component ID of gimbal device (or 1-6 for non-MAVLink gimbal).<br>Messages with same value are from the same source (instance). 
+gimbal_device_id | `uint8_t` | | | Gimbal device ID that this gimbal manager is responsible for. Component ID of gimbal device (or 1-6 for non-MAVLink gimbal).<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 roll_min | `float` | rad | | Minimum hardware roll angle (positive: rolling to the right, negative: rolling to the left) 
 roll_max | `float` | rad | | Maximum hardware roll angle (positive: rolling to the right, negative: rolling to the left) 
 pitch_min | `float` | rad | | Minimum pitch angle (positive: up, negative: down) 
@@ -2795,7 +2821,7 @@ Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
 time_boot_ms | `uint32_t` | ms | | Timestamp (time since system boot). 
 flags | `uint32_t` | | [GIMBAL_MANAGER_FLAGS](#GIMBAL_MANAGER_FLAGS) | High level gimbal manager flags currently applied. 
-gimbal_device_id | `uint8_t` | | | Gimbal device ID that this gimbal manager is responsible for. Component ID of gimbal device (or 1-6 for non-MAVLink gimbal).<br>Messages with same value are from the same source (instance). 
+gimbal_device_id | `uint8_t` | | | Gimbal device ID that this gimbal manager is responsible for. Component ID of gimbal device (or 1-6 for non-MAVLink gimbal).<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 primary_control_sysid | `uint8_t` | | | System ID of MAVLink component with primary control, 0 for none. 
 primary_control_compid | `uint8_t` | | | Component ID of MAVLink component with primary control, 0 for none. 
 secondary_control_sysid | `uint8_t` | | | System ID of MAVLink component with secondary control, 0 for none. 
@@ -2811,7 +2837,7 @@ Field Name | Type | Units | Values | Description
 target_system | `uint8_t` | | | System ID 
 target_component | `uint8_t` | | | Component ID 
 flags | `uint32_t` | | [GIMBAL_MANAGER_FLAGS](#GIMBAL_MANAGER_FLAGS) | High level gimbal manager flags to use. 
-gimbal_device_id | `uint8_t` | | | Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals).<br>Messages with same value are from the same source (instance). 
+gimbal_device_id | `uint8_t` | | | Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals).<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 q | `float[4]` | | | Quaternion components, w, x, y, z (1 0 0 0 is the null-rotation, the frame is depends on whether the flag [GIMBAL_MANAGER_FLAGS_YAW_LOCK](#GIMBAL_MANAGER_FLAGS_YAW_LOCK) is set) 
 angular_velocity_x | `float` | rad/s | invalid:NaN | X component of angular velocity, positive is rolling to the right, NaN to be ignored. 
 angular_velocity_y | `float` | rad/s | invalid:NaN | Y component of angular velocity, positive is pitching up, NaN to be ignored. 
@@ -2923,7 +2949,7 @@ v_estimated_delay_us | `uint32_t` | us | invalid:0 | Estimated delay of the spee
 feed_forward_angular_velocity_z | `float` | rad/s | invalid:NaN | Feed forward Z component of angular velocity (positive: yawing to the right). NaN to be ignored. This is to indicate if the autopilot is actively yawing. 
 estimator_status | `uint16_t` | | [ESTIMATOR_STATUS_FLAGS](#ESTIMATOR_STATUS_FLAGS) | Bitmap indicating which estimator outputs are valid. 
 landed_state | `uint8_t` | | invalid:MAV_LANDED_STATE_UNDEFINED [MAV_LANDED_STATE](#MAV_LANDED_STATE) | The landed state. Is set to [MAV_LANDED_STATE_UNDEFINED](#MAV_LANDED_STATE_UNDEFINED) if landed state is unknown. 
-<span class='ext'>angular_velocity_z</span> <a href='#mav2_extension_field'>++</a> | `float` | rad/s | invalid:NaN | Z component of angular velocity in NED (North, East, Down). NaN if unknown. 
+<span class='ext'>angular_velocity_z</span> <a href='#mav2_extension_field'>++</a> | `float` | rad/s | invalid:0 | Z component of angular velocity in NED (North, East, Down). 0 if unknown. Use 0.00001 to represent a measured value of zero. 
 
 
 ### GIMBAL_MANAGER_SET_PITCHYAW (287) {#GIMBAL_MANAGER_SET_PITCHYAW}
@@ -2935,7 +2961,7 @@ Field Name | Type | Units | Values | Description
 target_system | `uint8_t` | | | System ID 
 target_component | `uint8_t` | | | Component ID 
 flags | `uint32_t` | | [GIMBAL_MANAGER_FLAGS](#GIMBAL_MANAGER_FLAGS) | High level gimbal manager flags to use. 
-gimbal_device_id | `uint8_t` | | | Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals).<br>Messages with same value are from the same source (instance). 
+gimbal_device_id | `uint8_t` | | | Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals).<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 pitch | `float` | rad | invalid:NaN | Pitch angle (positive: up, negative: down, NaN to be ignored). 
 yaw | `float` | rad | invalid:NaN | Yaw angle (positive: to the right, negative: to the left, NaN to be ignored). 
 pitch_rate | `float` | rad/s | invalid:NaN | Pitch angular rate (positive: up, negative: down, NaN to be ignored). 
@@ -2951,22 +2977,20 @@ Field Name | Type | Values | Description
 target_system | `uint8_t` | | System ID 
 target_component | `uint8_t` | | Component ID 
 flags | `uint32_t` | [GIMBAL_MANAGER_FLAGS](#GIMBAL_MANAGER_FLAGS) | High level gimbal manager flags. 
-gimbal_device_id | `uint8_t` | | Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals).<br>Messages with same value are from the same source (instance). 
+gimbal_device_id | `uint8_t` | | Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals).<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 pitch | `float` | invalid:NaN | Pitch angle unitless (-1..1, positive: up, negative: down, NaN to be ignored). 
 yaw | `float` | invalid:NaN | Yaw angle unitless (-1..1, positive: to the right, negative: to the left, NaN to be ignored). 
 pitch_rate | `float` | invalid:NaN | Pitch angular rate unitless (-1..1, positive: up, negative: down, NaN to be ignored). 
 yaw_rate | `float` | invalid:NaN | Yaw angular rate unitless (-1..1, positive: to the right, negative: to the left, NaN to be ignored). 
 
 
-### ESC_INFO (290) — [WIP] {#ESC_INFO}
-
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
+### ESC_INFO (290) {#ESC_INFO}
 
 ESC information for lower rate streaming. Recommended streaming rate 1Hz. See [ESC_STATUS](#ESC_STATUS) for higher-rate ESC data.
 
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
-index | `uint8_t` | | | Index of the first ESC in this message (ESC are indexed in motor order). minValue = 0, maxValue = 60, increment = 4.<br>Messages with same value are from the same source (instance). 
+index | `uint8_t` | | | Index of the first ESC in this message (ESC are indexed in motor order). minValue = 0, maxValue = 60, increment = 4.<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 time_usec | `uint64_t` | us | | Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude the number. 
 counter | `uint16_t` | | | Counter of data packets received. 
 count | `uint8_t` | | | Total number of ESCs in all messages of this type. Message fields with an index higher than this should be ignored because they contain invalid data. 
@@ -2977,15 +3001,13 @@ error_count | `uint32_t[4]` | | | Number of reported errors by each ESC since bo
 temperature | `int16_t[4]` | cdegC | invalid:[INT16_MAX] | Temperature of each ESC. INT16_MAX: if data not supplied by ESC. 
 
 
-### ESC_STATUS (291) — [WIP] {#ESC_STATUS}
-
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
+### ESC_STATUS (291) {#ESC_STATUS}
 
 ESC information for higher rate streaming. Recommended streaming rate is ~10 Hz. Information that changes more slowly is sent in [ESC_INFO](#ESC_INFO). It should typically only be streamed on high-bandwidth links (i.e. to a companion computer).
 
 Field Name | Type | Units | Description
 --- | --- | --- | ---
-index | `uint8_t` | | Index of the first ESC in this message (ESC are indexed in motor order). minValue = 0, maxValue = 60, increment = 4.<br>Messages with same value are from the same source (instance). 
+index | `uint8_t` | | Index of the first ESC in this message (ESC are indexed in motor order). minValue = 0, maxValue = 60, increment = 4.<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 time_usec | `uint64_t` | us | Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude the number. 
 rpm | `int32_t[4]` | rpm | Reported motor RPM from each ESC (negative for reverse rotation). 
 voltage | `float[4]` | V | Voltage measured from each ESC. 
@@ -2998,7 +3020,7 @@ Airspeed information from a sensor.
 
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
-id | `uint8_t` | | | Sensor ID.<br>Messages with same value are from the same source (instance). 
+id | `uint8_t` | | | Sensor ID.<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 airspeed | `float` | m/s | | Calibrated airspeed (CAS). 
 temperature | `int16_t` | cdegC | invalid:INT16_MAX | Temperature. 
 raw_press | `float` | hPa | invalid:NaN | Raw differential pressure. 
@@ -3013,7 +3035,7 @@ Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
 target_system | `uint8_t` | | default:0 | System ID (ID of target system, normally autopilot and ground station). 
 target_component | `uint8_t` | | default:0 | Component ID (normally 0 for broadcast). 
-id | `uint8_t` | | | Sensor ID<br>Messages with same value are from the same source (instance). 
+id | `uint8_t` | | | Sensor ID<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 time_usec | `uint64_t` | us | | Timestamp of message transmission (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. 
 processing_time | `uint32_t` | us | | The time spent in processing the sensor data that is the basis for this position. The recipient can use this to improve time alignment of the data. This is the time between measurement (e.g. camera exposure time) and transmission of this message. Set to NaN if not known. 
 source | `uint8_t` | | [GLOBAL_POSITION_SRC](#GLOBAL_POSITION_SRC) | Source of position/estimate (such as GNSS, estimator, etc.) 
@@ -3074,7 +3096,7 @@ dimension_port | `uint8_t` | m | invalid:UINT8_MAX | Distance from lat/lon locat
 dimension_starboard | `uint8_t` | m | invalid:UINT8_MAX | Distance from lat/lon location to starboard side 
 callsign | `char[7]` | | | The vessel callsign. Characters are encoded as 7-bit ASCII, but only characters in the [AIS 6-bit ASCII subset](https://en.wikipedia.org/wiki/Six-bit_character_code#AIS_SixBit_ASCII) are permitted. Also set [AIS_FLAGS_VALID_CALLSIGN](#AIS_FLAGS_VALID_CALLSIGN) if valid. The string is NULL-terminated if it is shorter than the array length. 
 name | `char[20]` | | | The vessel name. Characters are encoded as 7-bit ASCII, but only characters in the [AIS 6-bit ASCII subset](https://en.wikipedia.org/wiki/Six-bit_character_code#AIS_SixBit_ASCII) are permitted. Also set [AIS_FLAGS_VALID_NAME](#AIS_FLAGS_VALID_NAME) if valid. The string is NULL-terminated if it is shorter than the array length. 
-tslc | `uint16_t` | s | | Time since last communication from the vessel, in seconds 
+tslc | `uint16_t` | s | | Time since last communication. This is the age of the AIS information in this message, in seconds. 
 flags | `uint16_t` | | [AIS_FLAGS](#AIS_FLAGS) | Bitmask to indicate various statuses including valid data fields 
 
 
@@ -3094,7 +3116,13 @@ vendor_specific_status_code | `uint16_t` | | | Vendor-specific status informatio
 
 ### UAVCAN_NODE_INFO (311) {#UAVCAN_NODE_INFO}
 
-General information describing a particular UAVCAN node. Please refer to the definition of the UAVCAN service "uavcan.protocol.GetNodeInfo" for the background information. This message should be emitted by the system whenever a new node appears online, or an existing node reboots. Additionally, it can be emitted upon request from the other end of the MAVLink channel (see [MAV_CMD_UAVCAN_GET_NODE_INFO](#MAV_CMD_UAVCAN_GET_NODE_INFO)). It is also not prohibited to emit this message unconditionally at a low frequency. The UAVCAN specification is available at http://uavcan.org.
+General information describing a particular UAVCAN node.
+
+Please refer to the definition of the UAVCAN service "uavcan.protocol.GetNodeInfo" for the background information.
+This message should be emitted by the system whenever a new node appears online, or an existing node reboots.
+The message may also be explicitly requested using [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE).
+It is also not prohibited to emit this message unconditionally at a low frequency.
+The DroneCAN specification is available at https://dronecan.github.io/Specification/1._Introduction/.
 
 Field Name | Type | Units | Description
 --- | --- | --- | ---
@@ -3117,7 +3145,7 @@ Field Name | Type | Description
 --- | --- | ---
 target_system | `uint8_t` | System ID 
 target_component | `uint8_t` | Component ID 
-param_id | `char[16]` | Parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string 
+param_id | `char[16]` | Parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string. Encoded as 7-bit ASCII. 
 param_index | `int16_t` | Parameter index. Set to -1 to use the Parameter ID field as identifier (else param_id will be ignored) 
 
 
@@ -3137,8 +3165,8 @@ Emit the value of a parameter. The inclusion of param_count and param_index in t
 
 Field Name | Type | Values | Description
 --- | --- | --- | ---
-param_id | `char[16]` | | Parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string 
-param_value | `char[128]` | | Parameter value 
+param_id | `char[16]` | | Parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string. Encoded as 7-bit ASCII. 
+param_value | `char[128]` | | Parameter value. Raw bytes, interpreted according to param_type; not a text string. 
 param_type | `uint8_t` | [MAV_PARAM_EXT_TYPE](#MAV_PARAM_EXT_TYPE) | Parameter type. 
 param_count | `uint16_t` | | Total number of parameters 
 param_index | `uint16_t` | | Index of this parameter 
@@ -3152,8 +3180,8 @@ Field Name | Type | Values | Description
 --- | --- | --- | ---
 target_system | `uint8_t` | | System ID 
 target_component | `uint8_t` | | Component ID 
-param_id | `char[16]` | | Parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string 
-param_value | `char[128]` | | Parameter value 
+param_id | `char[16]` | | Parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string. Encoded as 7-bit ASCII. 
+param_value | `char[128]` | | Parameter value. Raw bytes, interpreted according to param_type; not a text string. 
 param_type | `uint8_t` | [MAV_PARAM_EXT_TYPE](#MAV_PARAM_EXT_TYPE) | Parameter type. 
 
 
@@ -3163,8 +3191,8 @@ Response from a [PARAM_EXT_SET](#PARAM_EXT_SET) message.
 
 Field Name | Type | Values | Description
 --- | --- | --- | ---
-param_id | `char[16]` | | Parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string 
-param_value | `char[128]` | | Parameter value (new value if [PARAM_ACK_ACCEPTED](#PARAM_ACK_ACCEPTED), current value otherwise) 
+param_id | `char[16]` | | Parameter id, terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string. Encoded as 7-bit ASCII. 
+param_value | `char[128]` | | Parameter value (new value if [PARAM_ACK_ACCEPTED](#PARAM_ACK_ACCEPTED), current value otherwise). Raw bytes, interpreted according to param_type; not a text string. 
 param_type | `uint8_t` | [MAV_PARAM_EXT_TYPE](#MAV_PARAM_EXT_TYPE) | Parameter type. 
 param_result | `uint8_t` | [PARAM_ACK](#PARAM_ACK) | Result code. 
 
@@ -3255,17 +3283,34 @@ pos_yaw | `float[5]` | rad | Yaw. Set to NaN for unchanged
 
 ### CELLULAR_STATUS (334) {#CELLULAR_STATUS}
 
-Report current used cellular network status
+Cellular network status as reported by a particular modem.
 
-Field Name | Type | Values | Description
---- | --- | --- | ---
-status | `uint8_t` | [CELLULAR_STATUS_FLAG](#CELLULAR_STATUS_FLAG) | Cellular modem status 
-failure_reason | `uint8_t` | [CELLULAR_NETWORK_FAILED_REASON](#CELLULAR_NETWORK_FAILED_REASON) | Failure reason when status in in [CELLULAR_STATUS_FLAG_FAILED](#CELLULAR_STATUS_FLAG_FAILED) 
-type | `uint8_t` | [CELLULAR_NETWORK_RADIO_TYPE](#CELLULAR_NETWORK_RADIO_TYPE) | Cellular network radio type: gsm, cdma, lte... 
-quality | `uint8_t` | invalid:UINT8_MAX | Signal quality in percent. If unknown, set to UINT8_MAX 
-mcc | `uint16_t` | invalid:UINT16_MAX | Mobile country code. If unknown, set to UINT16_MAX 
-mnc | `uint16_t` | invalid:UINT16_MAX | Mobile network code. If unknown, set to UINT16_MAX 
-lac | `uint16_t` | invalid:0 | Location area code. If unknown, set to 0 
+
+This is primarily intended for logging, but a GCS may choose to display link_tx_rate and link_rx_rate.
+
+Note that a value of 0 in the id field indicates that the sender does not support reporting of multiple modems.
+Message data should be from a single modem, but that is not guaranteed.
+
+Field Name | Type | Units | Values | Description
+--- | --- | --- | --- | ---
+status | `uint8_t` | | [CELLULAR_STATUS_FLAG](#CELLULAR_STATUS_FLAG) | Cellular modem status 
+failure_reason | `uint8_t` | | [CELLULAR_NETWORK_FAILED_REASON](#CELLULAR_NETWORK_FAILED_REASON) | Failure reason when status is [CELLULAR_STATUS_FLAG_FAILED](#CELLULAR_STATUS_FLAG_FAILED) 
+type | `uint8_t` | | [CELLULAR_NETWORK_RADIO_TYPE](#CELLULAR_NETWORK_RADIO_TYPE) | Cellular network radio type: gsm, cdma, lte... 
+quality | `uint8_t` | | invalid:UINT8_MAX | Signal quality in percent. If unknown, set to UINT8_MAX 
+mcc | `uint16_t` | | invalid:UINT16_MAX | Mobile country code. If unknown, set to UINT16_MAX 
+mnc | `uint16_t` | | invalid:UINT16_MAX | Mobile network code. If unknown, set to UINT16_MAX 
+lac | `uint16_t` | | invalid:0 | Location area code. If unknown, set to 0 
+<span class='ext'>id</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | min:1 | Cellular modem instance number. Indexed from 1.<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
+<span class='ext'>link_tx_rate</span> <a href='#mav2_extension_field'>++</a> | `uint32_t` | KiB/s | invalid:0 | Download rate. 
+<span class='ext'>link_rx_rate</span> <a href='#mav2_extension_field'>++</a> | `uint32_t` | KiB/s | invalid:0 | Upload rate. 
+<span class='ext'>cell_tower_id</span> <a href='#mav2_extension_field'>++</a> | `char[9]` | | invalid:0 | ID of the currently connected cell tower. This must be NULL terminated if the length is less than 9 human-readable chars, and without the null termination (NULL) byte if the length is exactly 9 chars. 
+<span class='ext'>band_number</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | invalid:0 | LTE frequency band number. 
+<span class='ext'>band_frequency</span> <a href='#mav2_extension_field'>++</a> | `float` | MHz | invalid:0 | LTE radio frequency. 
+<span class='ext'>channel_number</span> <a href='#mav2_extension_field'>++</a> | `uint32_t` | | invalid:0 | The channel number (CN). Absolute radio-frequency (ARFCN) / E-UTRA (EARFCN) / UTRA (UARFCN) / New radio ([NR_CH](#NR_CH)). 
+<span class='ext'>rx_level</span> <a href='#mav2_extension_field'>++</a> | `float` | dBm | invalid:0 | On 3G is Received Signal Code Power (RSCP). On LTE is Reference Signal Received Power (RSRP). On 5G is New Radio Reference Signal Received Power ([NR_RSRP](#NR_RSRP)). 
+<span class='ext'>tx_level</span> <a href='#mav2_extension_field'>++</a> | `float` | dBm | invalid:0 | Transmitter (modem) signal absolute power level. 
+<span class='ext'>rx_quality</span> <a href='#mav2_extension_field'>++</a> | `float` | dBm | invalid:0 | On 3G is Receiver Quality (RxQual). On LTE is Reference Signal Received Quality (RSRQ). On 5G is New Radio Reference Signal Received Quality ([NR_RSRQ](#NR_RSRQ)). 
+<span class='ext'>sinr</span> <a href='#mav2_extension_field'>++</a> | `float` | dB | invalid:0 | Signal to interference plus noise ratio (SINR). 
 
 
 ### ISBD_LINK_STATUS (335) {#ISBD_LINK_STATUS}
@@ -3339,9 +3384,7 @@ flight_state | `uint8_t` | | [UTM_FLIGHT_STATE](#UTM_FLIGHT_STATE) | Flight stat
 flags | `uint8_t` | | [UTM_DATA_AVAIL_FLAGS](#UTM_DATA_AVAIL_FLAGS) | Bitwise OR combination of the data available flags. 
 
 
-### PARAM_ERROR (345) — [WIP] {#PARAM_ERROR}
-
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
+### PARAM_ERROR (345) {#PARAM_ERROR}
 
 Parameter set/get error. Returned from a MAVLink node in response to an error in the parameter protocol, for example failing to set a parameter because it does not exist.
 
@@ -3349,7 +3392,7 @@ Field Name | Type | Values | Description
 --- | --- | --- | ---
 target_system | `uint8_t` | | System ID 
 target_component | `uint8_t` | | Component ID 
-param_id | `char[16]` | | Parameter id. Terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string 
+param_id | `char[16]` | | Parameter id. Terminated by NULL if the length is less than 16 human-readable chars and WITHOUT null termination (NULL) byte if the length is exactly 16 chars - applications have to provide 16+1 bytes storage if the ID is stored as string. Encoded as 7-bit ASCII. 
 param_index | `int16_t` | | Parameter index. Will be -1 if the param ID field should be used as an identifier (else the param id will be ignored) 
 error | `uint8_t` | [MAV_PARAM_ERROR](#MAV_PARAM_ERROR) | Error being returned to client. 
 
@@ -3362,7 +3405,7 @@ Field Name | Type | Units | Description
 --- | --- | --- | ---
 time_usec | `uint64_t` | us | Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number. 
 name | `char[10]` | | Name, for human-friendly display in a Ground Control Station 
-array_id | `uint16_t` | | Unique ID used to discriminate between arrays<br>Messages with same value are from the same source (instance). 
+array_id | `uint16_t` | | Unique ID used to discriminate between arrays<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 <span class='ext'>data</span> <a href='#mav2_extension_field'>++</a> | `float[58]` | | data 
 
 
@@ -3397,13 +3440,15 @@ y | `int32_t` | | | Y coordinate of center point. Coordinate system depends on f
 z | `float` | m | | Altitude of center point. Coordinate system depends on frame field. 
 
 
-### SMART_BATTERY_INFO (370) {#SMART_BATTERY_INFO}
+### SMART_BATTERY_INFO (370) — [SUP] {#SMART_BATTERY_INFO}
+
+<span class="warning">**SUPERSEDED:** Replaced By [BATTERY_INFO](#BATTERY_INFO) (2024-02) — The [BATTERY_INFO](#BATTERY_INFO) message is better aligned with UAVCAN messages, and in any case is useful even if a battery is not "smart".)</span>
 
 Smart Battery information (static/infrequent update). Use for updates from: smart battery to flight stack, flight stack to GCS. Use [BATTERY_STATUS](#BATTERY_STATUS) for the frequent battery updates.
 
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
-id | `uint8_t` | | | Battery ID<br>Messages with same value are from the same source (instance). 
+id | `uint8_t` | | | Battery ID<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 battery_function | `uint8_t` | | [MAV_BATTERY_FUNCTION](#MAV_BATTERY_FUNCTION) | Function of the battery 
 type | `uint8_t` | | [MAV_BATTERY_TYPE](#MAV_BATTERY_TYPE) | Type (chemistry) of the battery 
 capacity_full_specification | `int32_t` | mAh | invalid:-1 | Capacity when full according to manufacturer, -1: field not provided. 
@@ -3441,7 +3486,7 @@ This should be streamed (nominally at 0.1 Hz).
 
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
-id | `uint8_t` | | | Fuel ID. Must match ID of other messages for same fuel system, such as [BATTERY_STATUS_V2](#BATTERY_STATUS_V2).<br>Messages with same value are from the same source (instance). 
+id | `uint8_t` | | | Fuel ID. Must match ID of other messages for same fuel system, such as [BATTERY_STATUS_V2](#BATTERY_STATUS_V2).<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 maximum_fuel | `float` | | | Capacity when full. Must be provided. 
 consumed_fuel | `float` | | invalid:NaN | Consumed fuel (measured). This value should not be inferred: if not measured set to NaN. NaN: field not provided. 
 remaining_fuel | `float` | | invalid:NaN | Remaining fuel until empty (measured). The value should not be inferred: if not measured set to NaN. NaN: field not provided. 
@@ -3461,7 +3506,7 @@ This message should requested using [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_M
 
 Field Name | Type | Units | Values | Description
 --- | --- | --- | --- | ---
-id | `uint8_t` | | | Battery ID<br>Messages with same value are from the same source (instance). 
+id | `uint8_t` | | | Battery ID<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 battery_function | `uint8_t` | | [MAV_BATTERY_FUNCTION](#MAV_BATTERY_FUNCTION) | Function of the battery. 
 type | `uint8_t` | | [MAV_BATTERY_TYPE](#MAV_BATTERY_TYPE) | Type (chemistry) of the battery. 
 state_of_health | `uint8_t` | % | invalid:UINT8_MAX | State of Health (SOH) estimate. Typically 100% at the time of manufacture and will decrease over time and use. -1: field not provided. 
@@ -3679,7 +3724,7 @@ uri | `char[100]` | | MAVLink FTP URI for the general metadata file ([COMP_METAD
 
 ### PLAY_TUNE_V2 (400) {#PLAY_TUNE_V2}
 
-Play vehicle tone/tune (buzzer). Supersedes message [PLAY_TUNE](#PLAY_TUNE).
+Play vehicle tone/tune (buzzer). Supported tunes can be determined using [SUPPORTED_TUNES](#SUPPORTED_TUNES). Supersedes message [PLAY_TUNE](#PLAY_TUNE).
 
 Field Name | Type | Values | Description
 --- | --- | --- | ---
@@ -3691,7 +3736,7 @@ tune | `char[248]` | | Tune definition as a NULL-terminated string.
 
 ### SUPPORTED_TUNES (401) {#SUPPORTED_TUNES}
 
-Tune formats supported by vehicle. This should be emitted as response to [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE).
+Tune formats supported by vehicle, i.e. via [PLAY_TUNE_V2](#PLAY_TUNE_V2). This should be emitted as response to [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE).
 
 Field Name | Type | Values | Description
 --- | --- | --- | ---
@@ -3700,9 +3745,7 @@ target_component | `uint8_t` | | Component ID
 format | `uint32_t` | [TUNE_FORMAT](#TUNE_FORMAT) | Bitfield of supported tune formats. 
 
 
-### EVENT (410) — [WIP] {#EVENT}
-
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
+### EVENT (410) {#EVENT}
 
 Event message. Each new event from a particular component gets a new sequence number. The same message might be sent multiple times if (re-)requested. Most events are broadcast, some can be specific to a target component (as receivers keep track of the sequence for missed events, all events need to be broadcast. Thus we use destination_component instead of target_component).
 
@@ -3717,9 +3760,7 @@ log_levels | `uint8_t` | | Log levels: 4 bits MSB: internal (for logging purpose
 arguments | `uint8_t[40]` | | Arguments (depend on event ID). 
 
 
-### CURRENT_EVENT_SEQUENCE (411) — [WIP] {#CURRENT_EVENT_SEQUENCE}
-
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
+### CURRENT_EVENT_SEQUENCE (411) {#CURRENT_EVENT_SEQUENCE}
 
 Regular broadcast for the current latest event sequence number for a component. This is used to check for dropped events.
 
@@ -3729,11 +3770,9 @@ sequence | `uint16_t` | | Sequence number.
 flags | `uint8_t` | [MAV_EVENT_CURRENT_SEQUENCE_FLAGS](#MAV_EVENT_CURRENT_SEQUENCE_FLAGS) | Flag bitset. 
 
 
-### REQUEST_EVENT (412) — [WIP] {#REQUEST_EVENT}
+### REQUEST_EVENT (412) {#REQUEST_EVENT}
 
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
-
-Request one or more events to be (re-)sent. If first_sequence==last_sequence, only a single event is requested. Note that first_sequence can be larger than last_sequence (because the sequence number can wrap). Each sequence will trigger an EVENT or [EVENT_ERROR](#EVENT_ERROR) response.
+Request one or more events to be (re-)sent. If first_sequence==last_sequence, only a single event is requested. Note that first_sequence can be larger than last_sequence (because the sequence number can wrap). Each sequence will trigger an EVENT or [RESPONSE_EVENT_ERROR](#RESPONSE_EVENT_ERROR) response.
 
 Field Name | Type | Description
 --- | --- | ---
@@ -3743,9 +3782,7 @@ first_sequence | `uint16_t` | First sequence number of the requested event.
 last_sequence | `uint16_t` | Last sequence number of the requested event. 
 
 
-### RESPONSE_EVENT_ERROR (413) — [WIP] {#RESPONSE_EVENT_ERROR}
-
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
+### RESPONSE_EVENT_ERROR (413) {#RESPONSE_EVENT_ERROR}
 
 Response to a [REQUEST_EVENT](#REQUEST_EVENT) in case of an error (e.g. the event is not available anymore).
 
@@ -3756,6 +3793,32 @@ target_component | `uint8_t` | | Component ID
 sequence | `uint16_t` | | Sequence number. 
 sequence_oldest_available | `uint16_t` | | Oldest Sequence number that is still available after the sequence set in [REQUEST_EVENT](#REQUEST_EVENT). 
 reason | `uint8_t` | [MAV_EVENT_ERROR_REASON](#MAV_EVENT_ERROR_REASON) | Error reason. 
+
+
+### RADIO_RC_CHANNELS (420) {#RADIO_RC_CHANNELS}
+
+RC channel outputs from a MAVLink RC receiver for input to a flight controller or other components (allows an RC receiver to connect via MAVLink instead of some other protocol such as PPM-Sum or S.BUS).
+
+Note that this is not intended to be an over-the-air format, and does not replace [RC_CHANNELS](#RC_CHANNELS) and similar messages reported by the flight controller.
+The target_system field should normally be set to the system id of the system to control, typically the flight controller.
+The target_component field can normally be set to 0, so that all components of the system can receive the message.
+The channels array field can publish up to 32 channels; the number of channel items used in the array is specified in the count field.
+The time_last_update_ms field contains the timestamp of the last received valid channels data in the receiver's time domain.
+The count field indicates the first index of the channel array that is not used for channel data (this and later indexes are zero-filled).
+The [RADIO_RC_CHANNELS_FLAGS_OUTDATED](#RADIO_RC_CHANNELS_FLAGS_OUTDATED) flag is set by the receiver if the channels data is not up-to-date (for example, if new data from the transmitter could not be validated so the last valid data is resent).
+The [RADIO_RC_CHANNELS_FLAGS_FAILSAFE](#RADIO_RC_CHANNELS_FLAGS_FAILSAFE) failsafe flag is set by the receiver if the receiver's failsafe condition is met (implementation dependent, e.g., connection to the RC radio is lost).
+In this case time_last_update_ms still contains the timestamp of the last valid channels data, but the content of the channels data is not defined by the protocol (it is up to the implementation of the receiver).
+For instance, the channels data could contain failsafe values configured in the receiver; the default is to carry the last valid data.
+Note: The RC channels fields are extensions to ensure that they are located at the end of the serialized payload and subject to MAVLink's trailing-zero trimming.
+
+Field Name | Type | Units | Values | Description
+--- | --- | --- | --- | ---
+target_system | `uint8_t` | | | System ID (ID of target system, normally flight controller). 
+target_component | `uint8_t` | | | Component ID (normally 0 for broadcast). 
+time_last_update_ms | `uint32_t` | ms | | Time when the data in the channels field were last updated (time since boot in the receiver's time domain). 
+flags | `uint16_t` | | [RADIO_RC_CHANNELS_FLAGS](#RADIO_RC_CHANNELS_FLAGS) | Radio RC channels status flags. 
+count | `uint8_t` | | | Total number of RC channels being received. This can be larger than 32, indicating that more channels are available but not given in this message. 
+<span class='ext'>channels</span> <a href='#mav2_extension_field'>++</a> | `int16_t[32]` | | min:-4096 max:4096 | RC channels.<br>Channel values are in centered 13 bit format. Range is -4096 to 4096, center is 0. Conversion to PWM is x * 5/32 + 1500.<br>Channels with indexes equal or above count should be set to 0, to benefit from MAVLink's trailing-zero trimming. 
 
 
 ### AVAILABLE_MODES (435) {#AVAILABLE_MODES}
@@ -3778,6 +3841,7 @@ standard_mode | `uint8_t` | [MAV_STANDARD_MODE](#MAV_STANDARD_MODE) | Standard m
 custom_mode | `uint32_t` | | A bitfield for use for autopilot-specific flags 
 properties | `uint32_t` | [MAV_MODE_PROPERTY](#MAV_MODE_PROPERTY) | Mode properties. 
 mode_name | `char[35]` | | Name of custom mode, with null termination character. Should be omitted for standard modes. 
+<span class='ext'>seq</span> <a href='#mav2_extension_field'>++</a> | `uint8_t` | | Sequence number. The value iterates sequentially whenever the set of [AVAILABLE_MODES](#AVAILABLE_MODES) changes and should match value of [AVAILABLE_MODES_MONITOR](#AVAILABLE_MODES_MONITOR). Note, a GCS must ignore 0 values, and should re-start the download if the value changes part-way through fetching modes. 
 
 
 ### CURRENT_MODE (436) {#CURRENT_MODE}
@@ -3807,7 +3871,7 @@ See https://mavlink.io/en/services/standard_modes.html
 
 Field Name | Type | Description
 --- | --- | ---
-seq | `uint8_t` | Sequence number. The value iterates sequentially whenever [AVAILABLE_MODES](#AVAILABLE_MODES) changes (e.g. support for a new mode is added/removed dynamically). 
+seq | `uint8_t` | Sequence number. Iterates sequentially whenever [AVAILABLE_MODES](#AVAILABLE_MODES) changes (e.g. support for a new mode is added/removed dynamically). 0 initially. 1 on first change of mode set. 
 
 
 ### ILLUMINATOR_STATUS (440) {#ILLUMINATOR_STATUS}
@@ -4007,7 +4071,7 @@ Temperature and humidity from hygrometer.
 
 Field Name | Type | Units | Description
 --- | --- | --- | ---
-id | `uint8_t` | | Hygrometer ID<br>Messages with same value are from the same source (instance). 
+id | `uint8_t` | | Hygrometer ID<br>[Instance field]: Uniquely identifies a device/subcomponent within a single source/target MAVLink component. 
 temperature | `int16_t` | cdegC | Temperature 
 humidity | `uint16_t` | c% | Humidity 
 
@@ -4113,6 +4177,12 @@ Value | Name | Description
 --- | --- | ---
 <a id='MAV_SYS_STATUS_RECOVERY_SYSTEM'></a>1 | [MAV_SYS_STATUS_RECOVERY_SYSTEM](#MAV_SYS_STATUS_RECOVERY_SYSTEM) | 0x01 Recovery system (parachute, balloon, retracts etc) 
 <a id='MAV_SYS_STATUS_SENSOR_LEAK'></a>2 | [MAV_SYS_STATUS_SENSOR_LEAK](#MAV_SYS_STATUS_SENSOR_LEAK) | 0x02 Leak detection 
+<a id='MAV_SYS_STATUS_SENSOR_3D_GYRO3'></a>4 | [MAV_SYS_STATUS_SENSOR_3D_GYRO3](#MAV_SYS_STATUS_SENSOR_3D_GYRO3) | 0x04 3rd 3D gyro 
+<a id='MAV_SYS_STATUS_SENSOR_3D_ACCEL3'></a>8 | [MAV_SYS_STATUS_SENSOR_3D_ACCEL3](#MAV_SYS_STATUS_SENSOR_3D_ACCEL3) | 0x08 3rd 3D accelerometer 
+<a id='MAV_SYS_STATUS_SENSOR_3D_GYRO4'></a>16 | [MAV_SYS_STATUS_SENSOR_3D_GYRO4](#MAV_SYS_STATUS_SENSOR_3D_GYRO4) | 0x10 4th 3D gyro 
+<a id='MAV_SYS_STATUS_SENSOR_3D_ACCEL4'></a>32 | [MAV_SYS_STATUS_SENSOR_3D_ACCEL4](#MAV_SYS_STATUS_SENSOR_3D_ACCEL4) | 0x20 4th 3D accelerometer 
+<a id='MAV_SYS_STATUS_SENSOR_3D_MAG3'></a>64 | [MAV_SYS_STATUS_SENSOR_3D_MAG3](#MAV_SYS_STATUS_SENSOR_3D_MAG3) | 0x40 3rd 3D magnetometer 
+<a id='MAV_SYS_STATUS_SENSOR_3D_MAG4'></a>128 | [MAV_SYS_STATUS_SENSOR_3D_MAG4](#MAV_SYS_STATUS_SENSOR_3D_MAG4) | 0x80 4th 3D magnetometer 
 
 ### MAV_FRAME {#MAV_FRAME}
 
@@ -4140,13 +4210,13 @@ Value | Name | Description
 <a id='MAV_FRAME_MISSION'></a>2 | [MAV_FRAME_MISSION](#MAV_FRAME_MISSION) | NOT a coordinate frame, indicates a mission command. 
 <a id='MAV_FRAME_GLOBAL_RELATIVE_ALT'></a>3 | [MAV_FRAME_GLOBAL_RELATIVE_ALT](#MAV_FRAME_GLOBAL_RELATIVE_ALT) | Global (WGS84) coordinate frame + altitude relative to the home position. 
 <a id='MAV_FRAME_LOCAL_ENU'></a>4 | [MAV_FRAME_LOCAL_ENU](#MAV_FRAME_LOCAL_ENU) | ENU local tangent frame (x: East, y: North, z: Up) with origin fixed relative to earth. 
-<a id='MAV_FRAME_GLOBAL_INT'></a>5 | [MAV_FRAME_GLOBAL_INT](#MAV_FRAME_GLOBAL_INT) | Global (WGS84) coordinate frame (scaled) + altitude relative to mean sea level (MSL). 
-<a id='MAV_FRAME_GLOBAL_RELATIVE_ALT_INT'></a>6 | [MAV_FRAME_GLOBAL_RELATIVE_ALT_INT](#MAV_FRAME_GLOBAL_RELATIVE_ALT_INT) | Global (WGS84) coordinate frame (scaled) + altitude relative to the home position. 
+<a id='MAV_FRAME_GLOBAL_INT'></a>5 | [MAV_FRAME_GLOBAL_INT](#MAV_FRAME_GLOBAL_INT) | Global (WGS84) coordinate frame (scaled) + altitude relative to mean sea level (MSL).<br><span class="warning">**SUPERSEDED:** Replaced By [MAV_FRAME_GLOBAL](#MAV_FRAME_GLOBAL) (2024-03) — Use [MAV_FRAME_GLOBAL](#MAV_FRAME_GLOBAL) in [COMMAND_INT](#COMMAND_INT) (and elsewhere) as a synonymous replacement.)</span> 
+<a id='MAV_FRAME_GLOBAL_RELATIVE_ALT_INT'></a>6 | [MAV_FRAME_GLOBAL_RELATIVE_ALT_INT](#MAV_FRAME_GLOBAL_RELATIVE_ALT_INT) | Global (WGS84) coordinate frame (scaled) + altitude relative to the home position.<br><span class="warning">**SUPERSEDED:** Replaced By [MAV_FRAME_GLOBAL_RELATIVE_ALT](#MAV_FRAME_GLOBAL_RELATIVE_ALT) (2024-03) — Use [MAV_FRAME_GLOBAL_RELATIVE_ALT](#MAV_FRAME_GLOBAL_RELATIVE_ALT) in [COMMAND_INT](#COMMAND_INT) (and elsewhere) as a synonymous replacement.)</span> 
 <a id='MAV_FRAME_LOCAL_OFFSET_NED'></a>7 | [MAV_FRAME_LOCAL_OFFSET_NED](#MAV_FRAME_LOCAL_OFFSET_NED) | NED local tangent frame (x: North, y: East, z: Down) with origin that travels with the vehicle. 
-<a id='MAV_FRAME_BODY_NED'></a>8 | [MAV_FRAME_BODY_NED](#MAV_FRAME_BODY_NED) | Same as [MAV_FRAME_LOCAL_NED](#MAV_FRAME_LOCAL_NED) when used to represent position values. Same as [MAV_FRAME_BODY_FRD](#MAV_FRAME_BODY_FRD) when used with velocity/acceleration values. 
-<a id='MAV_FRAME_BODY_OFFSET_NED'></a>9 | [MAV_FRAME_BODY_OFFSET_NED](#MAV_FRAME_BODY_OFFSET_NED) | This is the same as [MAV_FRAME_BODY_FRD](#MAV_FRAME_BODY_FRD). 
+<a id='MAV_FRAME_BODY_NED'></a>8 | [MAV_FRAME_BODY_NED](#MAV_FRAME_BODY_NED) | Same as [MAV_FRAME_LOCAL_NED](#MAV_FRAME_LOCAL_NED) when used to represent position values. Same as [MAV_FRAME_BODY_FRD](#MAV_FRAME_BODY_FRD) when used with velocity/acceleration values.<br><span class="warning">**SUPERSEDED:** Replaced By [MAV_FRAME_BODY_FRD](#MAV_FRAME_BODY_FRD) (2019-08)</span> 
+<a id='MAV_FRAME_BODY_OFFSET_NED'></a>9 | [MAV_FRAME_BODY_OFFSET_NED](#MAV_FRAME_BODY_OFFSET_NED) | This is the same as [MAV_FRAME_BODY_FRD](#MAV_FRAME_BODY_FRD).<br><span class="warning">**SUPERSEDED:** Replaced By [MAV_FRAME_BODY_FRD](#MAV_FRAME_BODY_FRD) (2019-08)</span> 
 <a id='MAV_FRAME_GLOBAL_TERRAIN_ALT'></a>10 | [MAV_FRAME_GLOBAL_TERRAIN_ALT](#MAV_FRAME_GLOBAL_TERRAIN_ALT) | Global (WGS84) coordinate frame with AGL altitude (altitude at ground level). 
-<a id='MAV_FRAME_GLOBAL_TERRAIN_ALT_INT'></a>11 | [MAV_FRAME_GLOBAL_TERRAIN_ALT_INT](#MAV_FRAME_GLOBAL_TERRAIN_ALT_INT) | Global (WGS84) coordinate frame (scaled) with AGL altitude (altitude at ground level). 
+<a id='MAV_FRAME_GLOBAL_TERRAIN_ALT_INT'></a>11 | [MAV_FRAME_GLOBAL_TERRAIN_ALT_INT](#MAV_FRAME_GLOBAL_TERRAIN_ALT_INT) | Global (WGS84) coordinate frame (scaled) with AGL altitude (altitude at ground level).<br><span class="warning">**SUPERSEDED:** Replaced By [MAV_FRAME_GLOBAL_TERRAIN_ALT](#MAV_FRAME_GLOBAL_TERRAIN_ALT) (2024-03) — Use [MAV_FRAME_GLOBAL_TERRAIN_ALT](#MAV_FRAME_GLOBAL_TERRAIN_ALT) in [COMMAND_INT](#COMMAND_INT) (and elsewhere) as a synonymous replacement.)</span> 
 <a id='MAV_FRAME_BODY_FRD'></a>12 | [MAV_FRAME_BODY_FRD](#MAV_FRAME_BODY_FRD) | FRD local frame aligned to the vehicle's attitude (x: Forward, y: Right, z: Down) with an origin that travels with vehicle. 
 <a id='MAV_FRAME_RESERVED_13'></a>13 | [MAV_FRAME_RESERVED_13](#MAV_FRAME_RESERVED_13) | [MAV_FRAME_BODY_FLU](#MAV_FRAME_BODY_FLU) - Body fixed frame of reference, Z-up (x: Forward, y: Left, z: Up).<br><span class="warning">**DEPRECATED:**(2019-04)</span> 
 <a id='MAV_FRAME_RESERVED_14'></a>14 | [MAV_FRAME_RESERVED_14](#MAV_FRAME_RESERVED_14) | [MAV_FRAME_MOCAP_NED](#MAV_FRAME_MOCAP_NED) - Odometry local coordinate frame of data given by a motion capture system, Z-down (x: North, y: East, z: Down).<br><span class="warning">**DEPRECATED:** Replaced By [MAV_FRAME_LOCAL_FRD](#MAV_FRAME_LOCAL_FRD) (2019-04)</span> 
@@ -4217,6 +4287,7 @@ Value | Name | Description
 <a id='MAV_MOUNT_MODE_GPS_POINT'></a>4 | [MAV_MOUNT_MODE_GPS_POINT](#MAV_MOUNT_MODE_GPS_POINT) | Load neutral position and start to point to Lat,Lon,Alt 
 <a id='MAV_MOUNT_MODE_SYSID_TARGET'></a>5 | [MAV_MOUNT_MODE_SYSID_TARGET](#MAV_MOUNT_MODE_SYSID_TARGET) | Gimbal tracks system with specified system ID 
 <a id='MAV_MOUNT_MODE_HOME_LOCATION'></a>6 | [MAV_MOUNT_MODE_HOME_LOCATION](#MAV_MOUNT_MODE_HOME_LOCATION) | Gimbal tracks home position 
+<a id='MAV_MOUNT_MODE_WPNEXT_OFFSET'></a>7 | [MAV_MOUNT_MODE_WPNEXT_OFFSET](#MAV_MOUNT_MODE_WPNEXT_OFFSET) | Gimbal tracks next waypoint location with offset 
 
 ### GIMBAL_DEVICE_CAP_FLAGS {#GIMBAL_DEVICE_CAP_FLAGS}
 
@@ -4236,7 +4307,7 @@ Value | Name | Description
 <a id='GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_FOLLOW'></a>512 | [GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_FOLLOW](#GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_FOLLOW) | Gimbal device supports to follow a yaw angle relative to the vehicle (generally that's the default). 
 <a id='GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_LOCK'></a>1024 | [GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_LOCK](#GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_LOCK) | Gimbal device supports locking to an absolute heading, i.e., yaw angle relative to North (earth frame, often this is an option available). 
 <a id='GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_INFINITE_YAW'></a>2048 | [GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_INFINITE_YAW](#GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_INFINITE_YAW) | Gimbal device supports yawing/panning infinitely (e.g. using slip disk). 
-<a id='GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME'></a>4096 | [GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME](#GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME) | Gimbal device supports yaw angles and angular velocities relative to North (earth frame). This usually requires support by an autopilot via [AUTOPILOT_STATE_FOR_GIMBAL_DEVICE](#AUTOPILOT_STATE_FOR_GIMBAL_DEVICE). Support can go on and off during runtime, which is reported by the flag [GIMBAL_DEVICE_FLAGS_CAN_ACCEPT_YAW_IN_EARTH_FRAME](#GIMBAL_DEVICE_FLAGS_CAN_ACCEPT_YAW_IN_EARTH_FRAME). 
+<a id='GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME'></a>4096 | [GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME](#GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME) | Gimbal device supports yaw angles and angular velocities relative to North (earth frame). This usually requires support by an autopilot via [AUTOPILOT_STATE_FOR_GIMBAL_DEVICE](#AUTOPILOT_STATE_FOR_GIMBAL_DEVICE). Support can go on and off during runtime, which is reported by the flag [GIMBAL_DEVICE_FLAGS_ACCEPTS_YAW_IN_EARTH_FRAME](#GIMBAL_DEVICE_FLAGS_ACCEPTS_YAW_IN_EARTH_FRAME). 
 <a id='GIMBAL_DEVICE_CAP_FLAGS_HAS_RC_INPUTS'></a>8192 | [GIMBAL_DEVICE_CAP_FLAGS_HAS_RC_INPUTS](#GIMBAL_DEVICE_CAP_FLAGS_HAS_RC_INPUTS) | Gimbal device supports radio control inputs as an alternative input for controlling the gimbal orientation. 
 <a id='GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL'></a>65536 | [GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL](#GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL) | Gimbal device supports to point to a local position. 
 <a id='GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL'></a>131072 | [GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL](#GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL) | Gimbal device supports to point to a global latitude, longitude, altitude position. 
@@ -4570,17 +4641,6 @@ Value | Name | Description
 <a id='PARAM_RESET_SENSOR_DEFAULT'></a>3 | [PARAM_RESET_SENSOR_DEFAULT](#PARAM_RESET_SENSOR_DEFAULT) | Reset only sensor calibration parameters to factory defaults (or firmware default if not available) 
 <a id='PARAM_RESET_ALL_DEFAULT'></a>4 | [PARAM_RESET_ALL_DEFAULT](#PARAM_RESET_ALL_DEFAULT) | Reset all parameters to default values. 
 
-### PREFLIGHT_STORAGE_MISSION_ACTION {#PREFLIGHT_STORAGE_MISSION_ACTION}
-
-Actions for reading and writing plan information (mission, rally points, geofence) between persistent and volatile storage when using [MAV_CMD_PREFLIGHT_STORAGE](#MAV_CMD_PREFLIGHT_STORAGE).
-(Commonly missions are loaded from persistent storage (flash/EEPROM) into volatile storage (RAM) on startup and written back when they are changed.)
-
-Value | Name | Description
---- | --- | ---
-<a id='MISSION_READ_PERSISTENT'></a>0 | [MISSION_READ_PERSISTENT](#MISSION_READ_PERSISTENT) | Read current mission data from persistent storage 
-<a id='MISSION_WRITE_PERSISTENT'></a>1 | [MISSION_WRITE_PERSISTENT](#MISSION_WRITE_PERSISTENT) | Write current mission data to persistent storage 
-<a id='MISSION_RESET_DEFAULT'></a>2 | [MISSION_RESET_DEFAULT](#MISSION_RESET_DEFAULT) | Erase all mission data stored on the vehicle (both persistent and volatile storage) 
-
 ### REBOOT_SHUTDOWN_ACTION {#REBOOT_SHUTDOWN_ACTION}
 
 Reboot/shutdown action for selected component in [MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN](#MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN).
@@ -4592,6 +4652,7 @@ Value | Name | Description
 <a id='REBOOT_SHUTDOWN_ACTION_SHUTDOWN'></a>2 | [REBOOT_SHUTDOWN_ACTION_SHUTDOWN](#REBOOT_SHUTDOWN_ACTION_SHUTDOWN) | Shutdown component. 
 <a id='REBOOT_SHUTDOWN_ACTION_REBOOT_TO_BOOTLOADER'></a>3 | [REBOOT_SHUTDOWN_ACTION_REBOOT_TO_BOOTLOADER](#REBOOT_SHUTDOWN_ACTION_REBOOT_TO_BOOTLOADER) | Reboot component and keep it in the bootloader until upgraded. 
 <a id='REBOOT_SHUTDOWN_ACTION_POWER_ON'></a>4 | [REBOOT_SHUTDOWN_ACTION_POWER_ON](#REBOOT_SHUTDOWN_ACTION_POWER_ON) | Power on component. Do nothing if component is already powered (ACK command with [MAV_RESULT_ACCEPTED](#MAV_RESULT_ACCEPTED)). 
+<a id='REBOOT_SHUTDOWN_ACTION_REBOOT_TO_MASS_STORAGE'></a>5 | [REBOOT_SHUTDOWN_ACTION_REBOOT_TO_MASS_STORAGE](#REBOOT_SHUTDOWN_ACTION_REBOOT_TO_MASS_STORAGE) | Reboot component into a mass storage mode. 
 
 ### REBOOT_SHUTDOWN_CONDITIONS {#REBOOT_SHUTDOWN_CONDITIONS}
 
@@ -4633,7 +4694,9 @@ Value | Name | Description
 --- | --- | ---
 <a id='NAV_TAKEOFF_FLAGS_HORIZONTAL_POSITION_NOT_REQUIRED'></a>1 | [NAV_TAKEOFF_FLAGS_HORIZONTAL_POSITION_NOT_REQUIRED](#NAV_TAKEOFF_FLAGS_HORIZONTAL_POSITION_NOT_REQUIRED) | Accept the command even if the autopilot does not have control over its horizontal position (note that it might not have altitude control either). 
 
-### MAV_DATA_STREAM {#MAV_DATA_STREAM}
+### MAV_DATA_STREAM — [SUP] {#MAV_DATA_STREAM}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MESSAGE_INTERVAL](#MESSAGE_INTERVAL) (2015-06)</span>
 
 A data stream is not a fixed set of messages, but rather a
 
@@ -4652,12 +4715,11 @@ Value | Name | Description
 <a id='MAV_DATA_STREAM_EXTRA2'></a>11 | [MAV_DATA_STREAM_EXTRA2](#MAV_DATA_STREAM_EXTRA2) | Dependent on the autopilot 
 <a id='MAV_DATA_STREAM_EXTRA3'></a>12 | [MAV_DATA_STREAM_EXTRA3](#MAV_DATA_STREAM_EXTRA3) | Dependent on the autopilot 
 
-### MAV_ROI {#MAV_ROI}
+### MAV_ROI — [SUP] {#MAV_ROI}
 
-The ROI (region of interest) for the vehicle. This can be
+<span class="warning">**SUPERSEDED:** Replaced By `MAV_CMD_DO_SET_ROI_*` (2018-01)</span>
 
-be used by the vehicle for camera/vehicle attitude alignment (see
-[MAV_CMD_NAV_ROI](#MAV_CMD_NAV_ROI)).
+The ROI (region of interest) for the vehicle. This can be used by the vehicle for camera/vehicle attitude alignment (see [MAV_CMD_NAV_ROI](#MAV_CMD_NAV_ROI)).
 
 Value | Name | Description
 --- | --- | ---
@@ -4684,9 +4746,7 @@ Value | Name | Description
 <a id='MAV_PARAM_TYPE_REAL32'></a>9 | [MAV_PARAM_TYPE_REAL32](#MAV_PARAM_TYPE_REAL32) | 32-bit floating-point 
 <a id='MAV_PARAM_TYPE_REAL64'></a>10 | [MAV_PARAM_TYPE_REAL64](#MAV_PARAM_TYPE_REAL64) | 64-bit floating-point 
 
-### MAV_PARAM_ERROR — [WIP] {#MAV_PARAM_ERROR}
-
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
+### MAV_PARAM_ERROR {#MAV_PARAM_ERROR}
 
 Parameter protocol error types (see [PARAM_ERROR](#PARAM_ERROR)).
 
@@ -4799,7 +4859,17 @@ Value | Name | Description
 <a id='SERIAL_CONTROL_DEV_TELEM2'></a>1 | [SERIAL_CONTROL_DEV_TELEM2](#SERIAL_CONTROL_DEV_TELEM2) | Second telemetry port 
 <a id='SERIAL_CONTROL_DEV_GPS1'></a>2 | [SERIAL_CONTROL_DEV_GPS1](#SERIAL_CONTROL_DEV_GPS1) | First GPS port 
 <a id='SERIAL_CONTROL_DEV_GPS2'></a>3 | [SERIAL_CONTROL_DEV_GPS2](#SERIAL_CONTROL_DEV_GPS2) | Second GPS port 
+<a id='SERIAL_CONTROL_DEV_TELEM3'></a>4 | [SERIAL_CONTROL_DEV_TELEM3](#SERIAL_CONTROL_DEV_TELEM3) | Third telemetry port 
+<a id='SERIAL_CONTROL_DEV_TELEM4'></a>5 | [SERIAL_CONTROL_DEV_TELEM4](#SERIAL_CONTROL_DEV_TELEM4) | Fourth telemetry port 
 <a id='SERIAL_CONTROL_DEV_SHELL'></a>10 | [SERIAL_CONTROL_DEV_SHELL](#SERIAL_CONTROL_DEV_SHELL) | system shell 
+<a id='SERIAL_CONTROL_DEV_ESC0'></a>20 | [SERIAL_CONTROL_DEV_ESC0](#SERIAL_CONTROL_DEV_ESC0) | Electronic Speed Controller 0 
+<a id='SERIAL_CONTROL_DEV_ESC1'></a>21 | [SERIAL_CONTROL_DEV_ESC1](#SERIAL_CONTROL_DEV_ESC1) | Electronic Speed Controller 1 
+<a id='SERIAL_CONTROL_DEV_ESC2'></a>22 | [SERIAL_CONTROL_DEV_ESC2](#SERIAL_CONTROL_DEV_ESC2) | Electronic Speed Controller 2 
+<a id='SERIAL_CONTROL_DEV_ESC3'></a>23 | [SERIAL_CONTROL_DEV_ESC3](#SERIAL_CONTROL_DEV_ESC3) | Electronic Speed Controller 3 
+<a id='SERIAL_CONTROL_DEV_ESC4'></a>24 | [SERIAL_CONTROL_DEV_ESC4](#SERIAL_CONTROL_DEV_ESC4) | Electronic Speed Controller 4 
+<a id='SERIAL_CONTROL_DEV_ESC5'></a>25 | [SERIAL_CONTROL_DEV_ESC5](#SERIAL_CONTROL_DEV_ESC5) | Electronic Speed Controller 5 
+<a id='SERIAL_CONTROL_DEV_ESC6'></a>26 | [SERIAL_CONTROL_DEV_ESC6](#SERIAL_CONTROL_DEV_ESC6) | Electronic Speed Controller 6 
+<a id='SERIAL_CONTROL_DEV_ESC7'></a>27 | [SERIAL_CONTROL_DEV_ESC7](#SERIAL_CONTROL_DEV_ESC7) | Electronic Speed Controller 7 
 <a id='SERIAL_CONTROL_SERIAL0'></a>100 | [SERIAL_CONTROL_SERIAL0](#SERIAL_CONTROL_SERIAL0) | SERIAL0 
 <a id='SERIAL_CONTROL_SERIAL1'></a>101 | [SERIAL_CONTROL_SERIAL1](#SERIAL_CONTROL_SERIAL1) | SERIAL1 
 <a id='SERIAL_CONTROL_SERIAL2'></a>102 | [SERIAL_CONTROL_SERIAL2](#SERIAL_CONTROL_SERIAL2) | SERIAL2 
@@ -4968,7 +5038,7 @@ Value | Name | Description
 --- | --- | ---
 <a id='MAV_BATTERY_FAULT_DEEP_DISCHARGE'></a>1 | [MAV_BATTERY_FAULT_DEEP_DISCHARGE](#MAV_BATTERY_FAULT_DEEP_DISCHARGE) | Battery has deep discharged. 
 <a id='MAV_BATTERY_FAULT_SPIKES'></a>2 | [MAV_BATTERY_FAULT_SPIKES](#MAV_BATTERY_FAULT_SPIKES) | Voltage spikes. 
-<a id='MAV_BATTERY_FAULT_CELL_FAIL'></a>4 | [MAV_BATTERY_FAULT_CELL_FAIL](#MAV_BATTERY_FAULT_CELL_FAIL) | One or more cells have failed. Battery should also report [MAV_BATTERY_CHARGE_STATE_FAILE](#MAV_BATTERY_CHARGE_STATE_FAILE) (and should not be used). 
+<a id='MAV_BATTERY_FAULT_CELL_FAIL'></a>4 | [MAV_BATTERY_FAULT_CELL_FAIL](#MAV_BATTERY_FAULT_CELL_FAIL) | One or more cells have failed. Battery should also report [MAV_BATTERY_CHARGE_STATE_FAILED](#MAV_BATTERY_CHARGE_STATE_FAILED) (and should not be used). 
 <a id='MAV_BATTERY_FAULT_OVER_CURRENT'></a>8 | [MAV_BATTERY_FAULT_OVER_CURRENT](#MAV_BATTERY_FAULT_OVER_CURRENT) | Over-current fault. 
 <a id='MAV_BATTERY_FAULT_OVER_TEMPERATURE'></a>16 | [MAV_BATTERY_FAULT_OVER_TEMPERATURE](#MAV_BATTERY_FAULT_OVER_TEMPERATURE) | Over-temperature fault. 
 <a id='MAV_BATTERY_FAULT_UNDER_TEMPERATURE'></a>32 | [MAV_BATTERY_FAULT_UNDER_TEMPERATURE](#MAV_BATTERY_FAULT_UNDER_TEMPERATURE) | Under-temperature fault. 
@@ -5112,6 +5182,16 @@ Value | Name | Description
 <a id='SPEED_TYPE_GROUNDSPEED'></a>1 | [SPEED_TYPE_GROUNDSPEED](#SPEED_TYPE_GROUNDSPEED) | Groundspeed 
 <a id='SPEED_TYPE_CLIMB_SPEED'></a>2 | [SPEED_TYPE_CLIMB_SPEED](#SPEED_TYPE_CLIMB_SPEED) | Climb speed 
 <a id='SPEED_TYPE_DESCENT_SPEED'></a>3 | [SPEED_TYPE_DESCENT_SPEED](#SPEED_TYPE_DESCENT_SPEED) | Descent speed 
+
+### HEADING_TYPE {#HEADING_TYPE}
+
+Heading setpoint types used in [MAV_CMD_GUIDED_CHANGE_HEADING](#MAV_CMD_GUIDED_CHANGE_HEADING)
+
+Value | Name | Description
+--- | --- | ---
+<a id='HEADING_TYPE_COURSE_OVER_GROUND'></a>0 | [HEADING_TYPE_COURSE_OVER_GROUND](#HEADING_TYPE_COURSE_OVER_GROUND) | Course over ground. 
+<a id='HEADING_TYPE_HEADING'></a>1 | [HEADING_TYPE_HEADING](#HEADING_TYPE_HEADING) | Raw vehicle heading. 
+<a id='HEADING_TYPE_DEFAULT'></a>2 | [HEADING_TYPE_DEFAULT](#HEADING_TYPE_DEFAULT) | Default heading. 
 
 ### ESTIMATOR_STATUS_FLAGS {#ESTIMATOR_STATUS_FLAGS}
 
@@ -5290,6 +5370,8 @@ Value | Name | Description
 <a id='VIDEO_STREAM_TYPE_RTPUDP'></a>1 | [VIDEO_STREAM_TYPE_RTPUDP](#VIDEO_STREAM_TYPE_RTPUDP) | Stream is RTP UDP (URI gives the port number) 
 <a id='VIDEO_STREAM_TYPE_TCP_MPEG'></a>2 | [VIDEO_STREAM_TYPE_TCP_MPEG](#VIDEO_STREAM_TYPE_TCP_MPEG) | Stream is MPEG on TCP 
 <a id='VIDEO_STREAM_TYPE_MPEG_TS'></a>3 | [VIDEO_STREAM_TYPE_MPEG_TS](#VIDEO_STREAM_TYPE_MPEG_TS) | Stream is MPEG TS (URI gives the port number) 
+<a id='VIDEO_STREAM_TYPE_WHEP'></a>4 | [VIDEO_STREAM_TYPE_WHEP](#VIDEO_STREAM_TYPE_WHEP) | Stream is WHEP (WebRTC-HTTP Egress Protocol) 
+<a id='VIDEO_STREAM_TYPE_SRT'></a>5 | [VIDEO_STREAM_TYPE_SRT](#VIDEO_STREAM_TYPE_SRT) | Stream is SRT (Secure Reliable Transport).<br>The payload is MPEG-TS (as for [VIDEO_STREAM_TYPE_MPEG_TS](#VIDEO_STREAM_TYPE_MPEG_TS)); streams other than video (e.g. KLV metadata, audio) may be ignored.<br>VIDEO_STREAM_INFORMATION.uri is a full URI with the prefix `srt://host:port` followed by query parameters.<br>Recognised parameters include: mode (caller, listener or rendezvous), latency (ms), streamid (opaque string, e.g. for hub access control).<br>Encryption passphrases should be exchanged out of band rather than in the URI, as MAVLink messages are not encrypted. 
 
 ### VIDEO_STREAM_ENCODING {#VIDEO_STREAM_ENCODING}
 
@@ -5310,8 +5392,8 @@ Value | Name | Description
 <a id='CAMERA_TRACKING_STATUS_FLAGS_IDLE'></a>0 | [CAMERA_TRACKING_STATUS_FLAGS_IDLE](#CAMERA_TRACKING_STATUS_FLAGS_IDLE) | Camera is not tracking 
 <a id='CAMERA_TRACKING_STATUS_FLAGS_ACTIVE'></a>1 | [CAMERA_TRACKING_STATUS_FLAGS_ACTIVE](#CAMERA_TRACKING_STATUS_FLAGS_ACTIVE) | Camera is tracking 
 <a id='CAMERA_TRACKING_STATUS_FLAGS_ERROR'></a>2 | [CAMERA_TRACKING_STATUS_FLAGS_ERROR](#CAMERA_TRACKING_STATUS_FLAGS_ERROR) | Camera tracking in error state 
-<a id='CAMERA_TRACKING_STATUS_FLAGS_MTI'></a>4 | [CAMERA_TRACKING_STATUS_FLAGS_MTI](#CAMERA_TRACKING_STATUS_FLAGS_MTI) | Camera Moving Target Indicators (MTI) are active<br><span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span> 
-<a id='CAMERA_TRACKING_STATUS_FLAGS_COASTING'></a>8 | [CAMERA_TRACKING_STATUS_FLAGS_COASTING](#CAMERA_TRACKING_STATUS_FLAGS_COASTING) | Camera tracking target is obscured and is being predicted<br><span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span> 
+<a id='CAMERA_TRACKING_STATUS_FLAGS_MTI'></a>4 | [CAMERA_TRACKING_STATUS_FLAGS_MTI](#CAMERA_TRACKING_STATUS_FLAGS_MTI) | Camera Moving Target Indicators (MTI) are active 
+<a id='CAMERA_TRACKING_STATUS_FLAGS_COASTING'></a>8 | [CAMERA_TRACKING_STATUS_FLAGS_COASTING](#CAMERA_TRACKING_STATUS_FLAGS_COASTING) | Camera tracking target is obscured and is being predicted 
 
 ### CAMERA_TRACKING_MODE {#CAMERA_TRACKING_MODE}
 
@@ -5379,7 +5461,7 @@ Value | Name | Description
 <a id='PARAM_ACK_ACCEPTED'></a>0 | [PARAM_ACK_ACCEPTED](#PARAM_ACK_ACCEPTED) | Parameter value ACCEPTED and SET 
 <a id='PARAM_ACK_VALUE_UNSUPPORTED'></a>1 | [PARAM_ACK_VALUE_UNSUPPORTED](#PARAM_ACK_VALUE_UNSUPPORTED) | Parameter value UNKNOWN/UNSUPPORTED 
 <a id='PARAM_ACK_FAILED'></a>2 | [PARAM_ACK_FAILED](#PARAM_ACK_FAILED) | Parameter failed to set 
-<a id='PARAM_ACK_IN_PROGRESS'></a>3 | [PARAM_ACK_IN_PROGRESS](#PARAM_ACK_IN_PROGRESS) | Parameter value received but not yet set/accepted. A subsequent [PARAM_EXT_ACK](#PARAM_EXT_ACK) with the final result will follow once operation is completed. This is returned immediately for parameters that take longer to set, indicating that the the parameter was received and does not need to be resent. 
+<a id='PARAM_ACK_IN_PROGRESS'></a>3 | [PARAM_ACK_IN_PROGRESS](#PARAM_ACK_IN_PROGRESS) | Parameter value received but not yet set/accepted. A subsequent [PARAM_EXT_ACK](#PARAM_EXT_ACK) with the final result will follow once operation is completed. This is returned immediately for parameters that take longer to set, indicating that the parameter was received and does not need to be resent. 
 
 ### CAMERA_MODE {#CAMERA_MODE}
 
@@ -5422,6 +5504,15 @@ Value | Name | Description
 <a id='RC_SUB_TYPE_SPEKTRUM_DSM2'></a>0 | [RC_SUB_TYPE_SPEKTRUM_DSM2](#RC_SUB_TYPE_SPEKTRUM_DSM2) | Spektrum DSM2 
 <a id='RC_SUB_TYPE_SPEKTRUM_DSMX'></a>1 | [RC_SUB_TYPE_SPEKTRUM_DSMX](#RC_SUB_TYPE_SPEKTRUM_DSMX) | Spektrum DSMX 
 <a id='RC_SUB_TYPE_SPEKTRUM_DSMX8'></a>2 | [RC_SUB_TYPE_SPEKTRUM_DSMX8](#RC_SUB_TYPE_SPEKTRUM_DSMX8) | Spektrum DSMX8 
+
+### RADIO_RC_CHANNELS_FLAGS {#RADIO_RC_CHANNELS_FLAGS}
+
+(Bitmask) [RADIO_RC_CHANNELS](#RADIO_RC_CHANNELS) flags (bitmask).
+
+Value | Name | Description
+--- | --- | ---
+<a id='RADIO_RC_CHANNELS_FLAGS_FAILSAFE'></a>1 | [RADIO_RC_CHANNELS_FLAGS_FAILSAFE](#RADIO_RC_CHANNELS_FLAGS_FAILSAFE) | Failsafe is active. The content of the RC channels data in the [RADIO_RC_CHANNELS](#RADIO_RC_CHANNELS) message is implementation dependent. 
+<a id='RADIO_RC_CHANNELS_FLAGS_OUTDATED'></a>2 | [RADIO_RC_CHANNELS_FLAGS_OUTDATED](#RADIO_RC_CHANNELS_FLAGS_OUTDATED) | Channel data may be out of date. This is set when the receiver is unable to validate incoming data from the transmitter and has therefore resent the last valid data it received. 
 
 ### ENGINE_CONTROL_OPTIONS {#ENGINE_CONTROL_OPTIONS}
 
@@ -5925,11 +6016,18 @@ Value | Name | Description
 <a id='FAILURE_UNIT_SENSOR_DISTANCE_SENSOR'></a>7 | [FAILURE_UNIT_SENSOR_DISTANCE_SENSOR](#FAILURE_UNIT_SENSOR_DISTANCE_SENSOR) |  
 <a id='FAILURE_UNIT_SENSOR_AIRSPEED'></a>8 | [FAILURE_UNIT_SENSOR_AIRSPEED](#FAILURE_UNIT_SENSOR_AIRSPEED) |  
 <a id='FAILURE_UNIT_SYSTEM_BATTERY'></a>100 | [FAILURE_UNIT_SYSTEM_BATTERY](#FAILURE_UNIT_SYSTEM_BATTERY) |  
-<a id='FAILURE_UNIT_SYSTEM_MOTOR'></a>101 | [FAILURE_UNIT_SYSTEM_MOTOR](#FAILURE_UNIT_SYSTEM_MOTOR) |  
+<a id='FAILURE_UNIT_SYSTEM_MOTOR'></a>101 | [FAILURE_UNIT_SYSTEM_MOTOR](#FAILURE_UNIT_SYSTEM_MOTOR) | Interrupts the commanded output to the motor. 
 <a id='FAILURE_UNIT_SYSTEM_SERVO'></a>102 | [FAILURE_UNIT_SYSTEM_SERVO](#FAILURE_UNIT_SYSTEM_SERVO) |  
 <a id='FAILURE_UNIT_SYSTEM_AVOIDANCE'></a>103 | [FAILURE_UNIT_SYSTEM_AVOIDANCE](#FAILURE_UNIT_SYSTEM_AVOIDANCE) |  
 <a id='FAILURE_UNIT_SYSTEM_RC_SIGNAL'></a>104 | [FAILURE_UNIT_SYSTEM_RC_SIGNAL](#FAILURE_UNIT_SYSTEM_RC_SIGNAL) |  
 <a id='FAILURE_UNIT_SYSTEM_MAVLINK_SIGNAL'></a>105 | [FAILURE_UNIT_SYSTEM_MAVLINK_SIGNAL](#FAILURE_UNIT_SYSTEM_MAVLINK_SIGNAL) |  
+<a id='FAILURE_UNIT_SYSTEM_ESC'></a>106 | [FAILURE_UNIT_SYSTEM_ESC](#FAILURE_UNIT_SYSTEM_ESC) | Interrupts the telemetry reported by the ESC. 
+<a id='FAILURE_UNIT_SYSTEM_TRAFFIC_AVOIDANCE'></a>107 | [FAILURE_UNIT_SYSTEM_TRAFFIC_AVOIDANCE](#FAILURE_UNIT_SYSTEM_TRAFFIC_AVOIDANCE) | Traffic avoidance system like ADS-B or FLARM. 
+<a id='FAILURE_UNIT_DATALINK_LTE'></a>150 | [FAILURE_UNIT_DATALINK_LTE](#FAILURE_UNIT_DATALINK_LTE) | Data link over a cellular (LTE) connection. 
+<a id='FAILURE_UNIT_DATALINK_WIFI'></a>151 | [FAILURE_UNIT_DATALINK_WIFI](#FAILURE_UNIT_DATALINK_WIFI) | Data link over a Wi-Fi connection. 
+<a id='FAILURE_UNIT_DATALINK_TELEM_RADIO'></a>152 | [FAILURE_UNIT_DATALINK_TELEM_RADIO](#FAILURE_UNIT_DATALINK_TELEM_RADIO) | Data link over a telemetry radio, e.g. a SiK radio. 
+<a id='FAILURE_UNIT_BUS_CAN'></a>200 | [FAILURE_UNIT_BUS_CAN](#FAILURE_UNIT_BUS_CAN) | CAN bus. Instance is the bus number, e.g. 1 for CAN1. 
+<a id='FAILURE_UNIT_BUS_I2C'></a>201 | [FAILURE_UNIT_BUS_I2C](#FAILURE_UNIT_BUS_I2C) | I2C bus. Instance is the bus number, e.g. 1 for I2C1. 
 
 ### FAILURE_TYPE {#FAILURE_TYPE}
 
@@ -5945,6 +6043,7 @@ Value | Name | Description
 <a id='FAILURE_TYPE_SLOW'></a>5 | [FAILURE_TYPE_SLOW](#FAILURE_TYPE_SLOW) | Unit is slow, so e.g. reporting at slower than expected rate. 
 <a id='FAILURE_TYPE_DELAYED'></a>6 | [FAILURE_TYPE_DELAYED](#FAILURE_TYPE_DELAYED) | Data of unit is delayed in time. 
 <a id='FAILURE_TYPE_INTERMITTENT'></a>7 | [FAILURE_TYPE_INTERMITTENT](#FAILURE_TYPE_INTERMITTENT) | Unit is sometimes working, sometimes not. 
+<a id='FAILURE_TYPE_DRIFT'></a>8 | [FAILURE_TYPE_DRIFT](#FAILURE_TYPE_DRIFT) | Unit is publishing plausible values but drifting away from true values. 
 
 ### NAV_VTOL_LAND_OPTIONS {#NAV_VTOL_LAND_OPTIONS}
 
@@ -5963,7 +6062,7 @@ Value | Name | Description
 <a id='MAV_WINCH_STATUS_HEALTHY'></a>1 | [MAV_WINCH_STATUS_HEALTHY](#MAV_WINCH_STATUS_HEALTHY) | Winch is healthy 
 <a id='MAV_WINCH_STATUS_FULLY_RETRACTED'></a>2 | [MAV_WINCH_STATUS_FULLY_RETRACTED](#MAV_WINCH_STATUS_FULLY_RETRACTED) | Winch line is fully retracted 
 <a id='MAV_WINCH_STATUS_MOVING'></a>4 | [MAV_WINCH_STATUS_MOVING](#MAV_WINCH_STATUS_MOVING) | Winch motor is moving 
-<a id='MAV_WINCH_STATUS_CLUTCH_ENGAGED'></a>8 | [MAV_WINCH_STATUS_CLUTCH_ENGAGED](#MAV_WINCH_STATUS_CLUTCH_ENGAGED) | Winch clutch is engaged allowing motor to move freely. 
+<a id='MAV_WINCH_STATUS_CLUTCH_DISENGAGED'></a>8 | [MAV_WINCH_STATUS_CLUTCH_DISENGAGED](#MAV_WINCH_STATUS_CLUTCH_DISENGAGED) | Winch clutch is disengaged. The motor is moving freely and not driving the winch. 
 <a id='MAV_WINCH_STATUS_LOCKED'></a>16 | [MAV_WINCH_STATUS_LOCKED](#MAV_WINCH_STATUS_LOCKED) | Winch is locked by locking mechanism. 
 <a id='MAV_WINCH_STATUS_DROPPING'></a>32 | [MAV_WINCH_STATUS_DROPPING](#MAV_WINCH_STATUS_DROPPING) | Winch is gravity dropping payload. 
 <a id='MAV_WINCH_STATUS_ARRESTING'></a>64 | [MAV_WINCH_STATUS_ARRESTING](#MAV_WINCH_STATUS_ARRESTING) | Winch is arresting payload descent. 
@@ -5985,8 +6084,11 @@ Value | Name | Description
 <a id='MAG_CAL_RUNNING_STEP_TWO'></a>3 | [MAG_CAL_RUNNING_STEP_TWO](#MAG_CAL_RUNNING_STEP_TWO) |  
 <a id='MAG_CAL_SUCCESS'></a>4 | [MAG_CAL_SUCCESS](#MAG_CAL_SUCCESS) |  
 <a id='MAG_CAL_FAILED'></a>5 | [MAG_CAL_FAILED](#MAG_CAL_FAILED) |  
-<a id='MAG_CAL_BAD_ORIENTATION'></a>6 | [MAG_CAL_BAD_ORIENTATION](#MAG_CAL_BAD_ORIENTATION) |  
-<a id='MAG_CAL_BAD_RADIUS'></a>7 | [MAG_CAL_BAD_RADIUS](#MAG_CAL_BAD_RADIUS) |  
+<a id='MAG_CAL_FAILED_ORIENTATION'></a>6 | [MAG_CAL_FAILED_ORIENTATION](#MAG_CAL_FAILED_ORIENTATION) | Compass calibration failed: the vehicle orientation is outside the required tolerance. 
+<a id='MAG_CAL_FAILED_RADIUS'></a>7 | [MAG_CAL_FAILED_RADIUS](#MAG_CAL_FAILED_RADIUS) | Compass calibration failed: the radius of the fitted sphere is unrealistically small or large. 
+<a id='MAG_CAL_FAILED_OFFSETS'></a>8 | [MAG_CAL_FAILED_OFFSETS](#MAG_CAL_FAILED_OFFSETS) | Compass calibration failed: offset magnitude too large. 
+<a id='MAG_CAL_FAILED_DIAG_SCALING'></a>9 | [MAG_CAL_FAILED_DIAG_SCALING](#MAG_CAL_FAILED_DIAG_SCALING) | Compass calibration failed: diagonal or off-diagonal scaling values out of valid range. 
+<a id='MAG_CAL_FAILED_RESIDUALS_HIGH'></a>10 | [MAG_CAL_FAILED_RESIDUALS_HIGH](#MAG_CAL_FAILED_RESIDUALS_HIGH) | Compass calibration failed: fitness (RMS residual) exceeds tolerance. 
 
 ### MAV_EVENT_ERROR_REASON {#MAV_EVENT_ERROR_REASON}
 
@@ -6093,6 +6195,7 @@ Value | Name | Description
 <a id='MAV_FTP_OPCODE_RENAME'></a>13 | [MAV_FTP_OPCODE_RENAME](#MAV_FTP_OPCODE_RENAME) | Rename: Rename path1 to path2 
 <a id='MAV_FTP_OPCODE_CALCFILECRC'></a>14 | [MAV_FTP_OPCODE_CALCFILECRC](#MAV_FTP_OPCODE_CALCFILECRC) | CalcFileCRC32: Calculate CRC32 for file at path 
 <a id='MAV_FTP_OPCODE_BURSTREADFILE'></a>15 | [MAV_FTP_OPCODE_BURSTREADFILE](#MAV_FTP_OPCODE_BURSTREADFILE) | BurstReadFile: Burst download session file 
+<a id='MAV_FTP_OPCODE_LISTDIRECTORYWITHTIME'></a>16 | [MAV_FTP_OPCODE_LISTDIRECTORYWITHTIME](#MAV_FTP_OPCODE_LISTDIRECTORYWITHTIME) | ListDirectoryWithTime: List files and directories, along with last-modification timestamps, in path from offset. This is the same as ListDirectory except for the addition of timestamps. Servers that do not support this opcode respond with a NAK ([MAV_FTP_ERR_UNKNOWNCOMMAND](#MAV_FTP_ERR_UNKNOWNCOMMAND)). 
 <a id='MAV_FTP_OPCODE_ACK'></a>128 | [MAV_FTP_OPCODE_ACK](#MAV_FTP_OPCODE_ACK) | ACK: ACK response 
 <a id='MAV_FTP_OPCODE_NAK'></a>129 | [MAV_FTP_OPCODE_NAK](#MAV_FTP_OPCODE_NAK) | NAK: NAK response 
 
@@ -6156,7 +6259,7 @@ Value | Name | Description
 <a id='MAV_STANDARD_MODE_ORBIT'></a>2 | [MAV_STANDARD_MODE_ORBIT](#MAV_STANDARD_MODE_ORBIT) | Orbit (manual).<br>Position-controlled and stabilized manual mode.<br>The vehicle circles around a fixed setpoint in the horizontal plane at a particular radius, altitude, and direction.<br>Flight stacks may further allow manual control over the setpoint position, radius, direction, speed, and/or altitude of the circle, but this is not mandated.<br>Flight stacks may support the [MAV_CMD_DO_ORBIT](https://mavlink.io/en/messages/common.html#MAV_CMD_DO_ORBIT) for changing the orbit parameters.<br>MC and FW vehicles may support this mode.<br>Hybrid MC/FW ("VTOL") vehicles may support this mode in MC/FW or both modes; if the mode is not supported by the current configuration the vehicle should transition to the supported configuration.<br>Other vehicle types must not support this mode (this may be revisited through the PR process). 
 <a id='MAV_STANDARD_MODE_CRUISE'></a>3 | [MAV_STANDARD_MODE_CRUISE](#MAV_STANDARD_MODE_CRUISE) | Cruise mode (manual).<br>Position-controlled and stabilized manual mode.<br>When sticks are released vehicles return to their level-flight orientation and hold their original track against wind and external forces.<br>Fixed-wing (FW) vehicles level orientation and maintain current track and altitude against wind and external forces.<br>Hybrid MC/FW ("VTOL") vehicles first transition to FW mode (if needed) but otherwise behave in the same way as MC vehicles.<br>Multicopter (MC) vehicles must not support this mode.<br>Other vehicle types must not support this mode (this may be revisited through the PR process). 
 <a id='MAV_STANDARD_MODE_ALTITUDE_HOLD'></a>4 | [MAV_STANDARD_MODE_ALTITUDE_HOLD](#MAV_STANDARD_MODE_ALTITUDE_HOLD) | Altitude hold (manual).<br>Altitude-controlled and stabilized manual mode.<br>When sticks are released vehicles return to their level-flight orientation and hold their altitude.<br>MC vehicles continue with existing momentum and may move with wind (or other external forces).<br>FW vehicles continue with current heading, but may be moved off-track by wind.<br>Hybrid MC/FW ("VTOL") vehicles behave according to their current configuration/mode (FW or MC).<br>Other vehicle types must not support this mode (this may be revisited through the PR process). 
-<a id='MAV_STANDARD_MODE_SAFE_RECOVERY'></a>5 | [MAV_STANDARD_MODE_SAFE_RECOVERY](#MAV_STANDARD_MODE_SAFE_RECOVERY) | Safe recovery mode (auto).<br>Automatic mode that takes vehicle to a predefined safe location via a safe flight path, and may also automatically land the vehicle.<br>This mode is more commonly referred to as RTL and/or or Smart RTL.<br>The precise return location, flight path, and landing behaviour depend on vehicle configuration and type.<br>For example, the vehicle might return to the home/launch location, a rally point, or the start of a mission landing, it might follow a direct path, mission path, or breadcrumb path, and land using a mission landing pattern or some other kind of descent. 
+<a id='MAV_STANDARD_MODE_SAFE_RECOVERY'></a>5 | [MAV_STANDARD_MODE_SAFE_RECOVERY](#MAV_STANDARD_MODE_SAFE_RECOVERY) | Safe recovery mode (auto).<br>Automatic mode that takes vehicle to a predefined safe location via a safe flight path, and may also automatically land the vehicle.<br>This mode is more commonly referred to as RTL and/or Smart RTL.<br>The precise return location, flight path, and landing behaviour depend on vehicle configuration and type.<br>For example, the vehicle might return to the home/launch location, a rally point, or the start of a mission landing, it might follow a direct path, mission path, or breadcrumb path, and land using a mission landing pattern or some other kind of descent. 
 <a id='MAV_STANDARD_MODE_MISSION'></a>6 | [MAV_STANDARD_MODE_MISSION](#MAV_STANDARD_MODE_MISSION) | Mission mode (automatic).<br>Automatic mode that executes MAVLink missions.<br>Missions are executed from the current waypoint as soon as the mode is enabled. 
 <a id='MAV_STANDARD_MODE_LAND'></a>7 | [MAV_STANDARD_MODE_LAND](#MAV_STANDARD_MODE_LAND) | Land mode (auto).<br>Automatic mode that lands the vehicle at the current location.<br>The precise landing behaviour depends on vehicle configuration and type. 
 <a id='MAV_STANDARD_MODE_TAKEOFF'></a>8 | [MAV_STANDARD_MODE_TAKEOFF](#MAV_STANDARD_MODE_TAKEOFF) | Takeoff mode (auto).<br>Automatic takeoff mode.<br>The precise takeoff behaviour depends on vehicle configuration and type. 
@@ -6212,6 +6315,7 @@ Value | Name | Description
 <a id='GLOBAL_POSITION_SRC_TERRAIN'></a>4 | [GLOBAL_POSITION_SRC_TERRAIN](#GLOBAL_POSITION_SRC_TERRAIN) | Terrain referenced navigation. 
 <a id='GLOBAL_POSITION_SRC_MAGNETIC'></a>5 | [GLOBAL_POSITION_SRC_MAGNETIC](#GLOBAL_POSITION_SRC_MAGNETIC) | Magnetic positioning. 
 <a id='GLOBAL_POSITION_SRC_ESTIMATOR'></a>6 | [GLOBAL_POSITION_SRC_ESTIMATOR](#GLOBAL_POSITION_SRC_ESTIMATOR) | Estimated position based on various sensors (eg. a Kalman Filter). 
+<a id='GLOBAL_POSITION_SRC_LEO'></a>7 | [GLOBAL_POSITION_SRC_LEO](#GLOBAL_POSITION_SRC_LEO) | Low Earth Orbit satellite-based positioning (e.g.: Starlink, Xona PULSAR). 
 
 ### GLOBAL_POSITION_FLAGS {#GLOBAL_POSITION_FLAGS}
 
@@ -6222,9 +6326,20 @@ Value | Name | Description
 <a id='GLOBAL_POSITION_UNHEALTHY'></a>1 | [GLOBAL_POSITION_UNHEALTHY](#GLOBAL_POSITION_UNHEALTHY) | Unhealthy sensor/estimator. 
 <a id='GLOBAL_POSITION_PRIMARY'></a>2 | [GLOBAL_POSITION_PRIMARY](#GLOBAL_POSITION_PRIMARY) | True if the data originates from or is consumed by the primary estimator. 
 
+### FOLLOW_TARGET_CAP_FLAGS {#FOLLOW_TARGET_CAP_FLAGS}
+
+(Bitmask) Bitmask indicating which fields contain valid data in a [FOLLOW_TARGET](#FOLLOW_TARGET) message (lat/lon/alt, vel, acc, attitude_q, rates). If a bit is unset, the corresponding field(s) are zero-filled and should be ignored.
+
+Value | Name | Description
+--- | --- | ---
+<a id='FOLLOW_TARGET_CAP_FLAGS_POS'></a>1 | [FOLLOW_TARGET_CAP_FLAGS_POS](#FOLLOW_TARGET_CAP_FLAGS_POS) | Position estimate is valid (lat/lon/alt). 
+<a id='FOLLOW_TARGET_CAP_FLAGS_VEL'></a>2 | [FOLLOW_TARGET_CAP_FLAGS_VEL](#FOLLOW_TARGET_CAP_FLAGS_VEL) | Velocity estimate is valid (vel field). 
+<a id='FOLLOW_TARGET_CAP_FLAGS_ACCEL'></a>4 | [FOLLOW_TARGET_CAP_FLAGS_ACCEL](#FOLLOW_TARGET_CAP_FLAGS_ACCEL) | Acceleration estimate is valid (acc field). 
+<a id='FOLLOW_TARGET_CAP_FLAGS_ATT_RATES'></a>8 | [FOLLOW_TARGET_CAP_FLAGS_ATT_RATES](#FOLLOW_TARGET_CAP_FLAGS_ATT_RATES) | Attitude and angular rate estimates are valid (attitude_q and rates fields). 
+
 ### MAV_BOOL — \[from: [standard](../messages/standard.md#MAV_BOOL)\] {#MAV_BOOL}
 
-(Bitmask) Enum used to indicate true or false (also: success or failure, enabled or disabled, active or inactive).
+Enum used to indicate true or false (also: success or failure, enabled or disabled, active or inactive).
 
 Value | Name | Description
 --- | --- | ---
@@ -6243,9 +6358,9 @@ Value | Name | Description
 <a id='MAV_PROTOCOL_CAPABILITY_COMMAND_INT'></a>8 | [MAV_PROTOCOL_CAPABILITY_COMMAND_INT](#MAV_PROTOCOL_CAPABILITY_COMMAND_INT) | Autopilot supports [COMMAND_INT](#COMMAND_INT) scaled integer message type. 
 <a id='MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE'></a>16 | [MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE](#MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE) | Parameter protocol uses byte-wise encoding of parameter values into param_value (float) fields: https://mavlink.io/en/services/parameter.html#parameter-encoding.<br>Note that either this flag or [MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST](#MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST) should be set if the parameter protocol is supported. 
 <a id='MAV_PROTOCOL_CAPABILITY_FTP'></a>32 | [MAV_PROTOCOL_CAPABILITY_FTP](#MAV_PROTOCOL_CAPABILITY_FTP) | Autopilot supports the File Transfer Protocol v1: https://mavlink.io/en/services/ftp.html. 
-<a id='MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET'></a>64 | [MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET](#MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET) | Autopilot supports commanding attitude offboard. 
-<a id='MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED'></a>128 | [MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED](#MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED) | Autopilot supports commanding position and velocity targets in local NED frame. 
-<a id='MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT'></a>256 | [MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT](#MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT) | Autopilot supports commanding position and velocity targets in global scaled integers. 
+<a id='MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET'></a>64 | [MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET](#MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET) | Autopilot supports the [SET_ATTITUDE_TARGET](#SET_ATTITUDE_TARGET) message (for commanding attitude from an offboard controller). 
+<a id='MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED'></a>128 | [MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED](#MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED) | Autopilot supports the [SET_POSITION_TARGET_LOCAL_NED](#SET_POSITION_TARGET_LOCAL_NED) message (for commanding position and velocity targets in local NED frame). 
+<a id='MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT'></a>256 | [MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT](#MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT) | Autopilot supports the [SET_POSITION_TARGET_GLOBAL_INT](#SET_POSITION_TARGET_GLOBAL_INT) message (for commanding position and velocity targets in global scaled integers). 
 <a id='MAV_PROTOCOL_CAPABILITY_TERRAIN'></a>512 | [MAV_PROTOCOL_CAPABILITY_TERRAIN](#MAV_PROTOCOL_CAPABILITY_TERRAIN) | Autopilot supports terrain protocol / data handling. 
 <a id='MAV_PROTOCOL_CAPABILITY_RESERVED3'></a>1024 | [MAV_PROTOCOL_CAPABILITY_RESERVED3](#MAV_PROTOCOL_CAPABILITY_RESERVED3) | Reserved for future use. 
 <a id='MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION'></a>2048 | [MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION](#MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION) | Autopilot supports the [MAV_CMD_DO_FLIGHTTERMINATION](#MAV_CMD_DO_FLIGHTTERMINATION) command (flight termination). 
@@ -6298,6 +6413,7 @@ Value | Name | Description
 <a id='MAV_AUTOPILOT_SMARTAP'></a>18 | [MAV_AUTOPILOT_SMARTAP](#MAV_AUTOPILOT_SMARTAP) | SmartAP Autopilot - http://sky-drones.com 
 <a id='MAV_AUTOPILOT_AIRRAILS'></a>19 | [MAV_AUTOPILOT_AIRRAILS](#MAV_AUTOPILOT_AIRRAILS) | AirRails - http://uaventure.com 
 <a id='MAV_AUTOPILOT_REFLEX'></a>20 | [MAV_AUTOPILOT_REFLEX](#MAV_AUTOPILOT_REFLEX) | Fusion Reflex - https://fusion.engineering 
+<a id='MAV_AUTOPILOT_FLIX'></a>21 | [MAV_AUTOPILOT_FLIX](#MAV_AUTOPILOT_FLIX) | Flix quadcopter - https://quadcopter.dev 
 
 ### MAV_TYPE — \[from: [minimal](../messages/minimal.md#MAV_TYPE)\] {#MAV_TYPE}
 
@@ -6369,7 +6485,7 @@ Value | Name | Description
 <a id='MAV_MODE_FLAG_STABILIZE_ENABLED'></a>16 | [MAV_MODE_FLAG_STABILIZE_ENABLED](#MAV_MODE_FLAG_STABILIZE_ENABLED) | 0b00010000 system stabilizes electronically its attitude (and optionally position). It needs however further control inputs to move around. 
 <a id='MAV_MODE_FLAG_HIL_ENABLED'></a>32 | [MAV_MODE_FLAG_HIL_ENABLED](#MAV_MODE_FLAG_HIL_ENABLED) | 0b00100000 hardware in the loop simulation. All motors / actuators are blocked, but internal software is full operational. 
 <a id='MAV_MODE_FLAG_MANUAL_INPUT_ENABLED'></a>64 | [MAV_MODE_FLAG_MANUAL_INPUT_ENABLED](#MAV_MODE_FLAG_MANUAL_INPUT_ENABLED) | 0b01000000 remote control input is enabled. 
-<a id='MAV_MODE_FLAG_SAFETY_ARMED'></a>128 | [MAV_MODE_FLAG_SAFETY_ARMED](#MAV_MODE_FLAG_SAFETY_ARMED) | 0b10000000 MAV safety set to armed. Motors are enabled / running / can start. Ready to fly. Additional note: this flag is to be ignore when sent in the command [MAV_CMD_DO_SET_MODE](#MAV_CMD_DO_SET_MODE) and [MAV_CMD_COMPONENT_ARM_DISARM](#MAV_CMD_COMPONENT_ARM_DISARM) shall be used instead. The flag can still be used to report the armed state. 
+<a id='MAV_MODE_FLAG_SAFETY_ARMED'></a>128 | [MAV_MODE_FLAG_SAFETY_ARMED](#MAV_MODE_FLAG_SAFETY_ARMED) | 0b10000000 MAV safety set to armed. Motors are enabled / running / can start. Ready to fly. Additional note: this flag is to be ignored when sent in the command [MAV_CMD_DO_SET_MODE](#MAV_CMD_DO_SET_MODE) and [MAV_CMD_COMPONENT_ARM_DISARM](#MAV_CMD_COMPONENT_ARM_DISARM) shall be used instead. The flag can still be used to report the armed state. 
 
 ### MAV_MODE_FLAG_DECODE_POSITION — \[from: [minimal](../messages/minimal.md#MAV_MODE_FLAG_DECODE_POSITION)\] {#MAV_MODE_FLAG_DECODE_POSITION}
 
@@ -6559,9 +6675,14 @@ Value | Name | Description
 
 ## Commands (MAV_CMD) {#mav_commands}
 
-### MAV_CMD_NAV_WAYPOINT (16) {#MAV_CMD_NAV_WAYPOINT}
+### MAV_CMD_NAV_WAYPOINT (16) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_NAV_WAYPOINT}
 
 Navigate to waypoint. This is intended for use in missions (for guided commands outside of missions use [MAV_CMD_DO_REPOSITION](#MAV_CMD_DO_REPOSITION)).
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6574,9 +6695,14 @@ Param (Label) | Description | Values | Units
 7 (Altitude) | Altitude |   | m 
 
 
-### MAV_CMD_NAV_LOITER_UNLIM (17) {#MAV_CMD_NAV_LOITER_UNLIM}
+### MAV_CMD_NAV_LOITER_UNLIM (17) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_LOITER_UNLIM}
 
 Loiter around this waypoint an unlimited amount of time
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -6589,37 +6715,47 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude | m 
 
 
-### MAV_CMD_NAV_LOITER_TURNS (18) {#MAV_CMD_NAV_LOITER_TURNS}
+### MAV_CMD_NAV_LOITER_TURNS (18) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_NAV_LOITER_TURNS}
 
 Loiter around this waypoint for X turns
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
 1 (Turns) | Number of turns. | min: 0 |   
-2 (Heading Required) | Leave loiter circle only when track heads towards the next waypoint (MAV_BOOL_FALSE: Leave when turns complete). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
+2 (Heading Required) | Leave loiter circle only when track heads towards the next waypoint (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE causes leaving when turns complete. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
 3 (Radius) | Loiter radius around waypoint for forward-only moving vehicles (not multicopters). If positive loiter clockwise, else counter-clockwise |   | m 
-4 (Xtrack Location) | Loiter circle exit location and/or path to next waypoint ("xtrack") for forward-only moving vehicles (not multicopters). 0 for the vehicle to converge towards the center xtrack when it leaves the loiter (the line between the centers of the current and next waypoint), 1 to converge to the direct line between the location that the vehicle exits the loiter radius and the next waypoint. Otherwise the angle (in degrees) between the tangent of the loiter circle and the center xtrack at which the vehicle must leave the loiter (and converge to the center xtrack). NaN to use the current system default xtrack behaviour. |   |   
+4 (Xtrack Location) | Loiter circle exit location and/or path to next waypoint ("xtrack") for forward-only moving vehicles (not multicopters). 0 for the vehicle to converge towards the center xtrack when it leaves the loiter (the line between the centers of the current and next waypoint), 1 to converge to the direct line between the location that the vehicle exits the loiter radius and the next waypoint. NaN to use the current system default xtrack behaviour. |   |   
 5 (Latitude) | Latitude |   |   
 6 (Longitude) | Longitude |   |   
 7 (Altitude) | Altitude |   | m 
 
 
-### MAV_CMD_NAV_LOITER_TIME (19) {#MAV_CMD_NAV_LOITER_TIME}
+### MAV_CMD_NAV_LOITER_TIME (19) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_NAV_LOITER_TIME}
 
 Loiter at the specified latitude, longitude and altitude for a certain amount of time. Multicopter vehicles stop at the point (within a vehicle-specific acceptance radius). Forward-only moving vehicles (e.g. fixed-wing) circle the point with the specified radius/direction. If the Heading Required parameter (2) is non-zero forward moving aircraft will only leave the loiter circle once heading towards the next waypoint.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
 1 (Time) | Loiter time (only starts once Lat, Lon and Alt is reached). | min: 0 | s 
-2 (Heading Required) | Leave loiter circle only when track heading towards the next waypoint (MAV_BOOL_FALSE: Leave on time expiry). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
+2 (Heading Required) | Leave loiter circle only when track heading towards the next waypoint (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE causes leaving on time expiry. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
 3 (Radius) | Loiter radius around waypoint for forward-only moving vehicles (not multicopters). If positive loiter clockwise, else counter-clockwise. |   | m 
-4 (Xtrack Location) | Loiter circle exit location and/or path to next waypoint ("xtrack") for forward-only moving vehicles (not multicopters). 0 for the vehicle to converge towards the center xtrack when it leaves the loiter (the line between the centers of the current and next waypoint), 1 to converge to the direct line between the location that the vehicle exits the loiter radius and the next waypoint. Otherwise the angle (in degrees) between the tangent of the loiter circle and the center xtrack at which the vehicle must leave the loiter (and converge to the center xtrack). NaN to use the current system default xtrack behaviour. |   |   
+4 (Xtrack Location) | Loiter circle exit location and/or path to next waypoint ("xtrack") for forward-only moving vehicles (not multicopters). 0 for the vehicle to converge towards the center xtrack when it leaves the loiter (the line between the centers of the current and next waypoint), 1 to converge to the direct line between the location that the vehicle exits the loiter radius and the next waypoint. NaN to use the current system default xtrack behaviour. |   |   
 5 (Latitude) | Latitude |   |   
 6 (Longitude) | Longitude |   |   
 7 (Altitude) | Altitude |   | m 
 
 
-### MAV_CMD_NAV_RETURN_TO_LAUNCH (20) {#MAV_CMD_NAV_RETURN_TO_LAUNCH}
+### MAV_CMD_NAV_RETURN_TO_LAUNCH (20) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_RETURN_TO_LAUNCH}
 
 Return to launch location
 
@@ -6634,9 +6770,14 @@ Param (Label) | Description
 7 | Empty 
 
 
-### MAV_CMD_NAV_LAND (21) {#MAV_CMD_NAV_LAND}
+### MAV_CMD_NAV_LAND (21) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_LAND}
 
 Land at location.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6649,9 +6790,14 @@ Param (Label) | Description | Values | Units
 7 (Altitude) | Landing altitude (ground level in current frame). |   | m 
 
 
-### MAV_CMD_NAV_TAKEOFF (22) {#MAV_CMD_NAV_TAKEOFF}
+### MAV_CMD_NAV_TAKEOFF (22) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_TAKEOFF}
 
 Takeoff from ground / hand. Vehicles that support multiple takeoff modes (e.g. VTOL quadplane) should take off using the currently configured mode.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6664,9 +6810,14 @@ Param (Label) | Description | Values | Units
 7 (Altitude) | Altitude |   | m 
 
 
-### MAV_CMD_NAV_LAND_LOCAL (23) {#MAV_CMD_NAV_LAND_LOCAL}
+### MAV_CMD_NAV_LAND_LOCAL (23) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_LAND_LOCAL}
 
 Land at local position (local frame only)
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6679,9 +6830,14 @@ Param (Label) | Description | Values | Units
 7 (Z Position) | Z-axis / ground level position |   | m 
 
 
-### MAV_CMD_NAV_TAKEOFF_LOCAL (24) {#MAV_CMD_NAV_TAKEOFF_LOCAL}
+### MAV_CMD_NAV_TAKEOFF_LOCAL (24) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_TAKEOFF_LOCAL}
 
 Takeoff from local position (local frame only)
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -6694,22 +6850,7 @@ Param (Label) | Description | Units
 7 (Z Position) | Z-axis position | m 
 
 
-### MAV_CMD_NAV_FOLLOW (25) {#MAV_CMD_NAV_FOLLOW}
-
-Vehicle following, i.e. this waypoint represents the position of a moving vehicle
-
-Param (Label) | Description | Values | Units
---- | --- | --- | ---
-1 (Following) | Following logic to use (e.g. loitering or sinusoidal following) - depends on specific autopilot implementation | inc: 1 |   
-2 (Ground Speed) | Ground speed of vehicle to be followed |   | m/s 
-3 (Radius) | Radius around waypoint. If positive loiter clockwise, else counter-clockwise |   | m 
-4 (Yaw) | Desired yaw angle. |   | deg 
-5 (Latitude) | Latitude |   |   
-6 (Longitude) | Longitude |   |   
-7 (Altitude) | Altitude |   | m 
-
-
-### MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT (30) {#MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT}
+### MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT (30) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT}
 
 Continue on the current course and climb/descend to specified altitude.  When the altitude is reached continue to the next command (i.e., don't proceed to the next command until the desired altitude is reached.
 
@@ -6724,22 +6865,27 @@ Param (Label) | Description | Values | Units
 7 (Altitude) | Desired altitude |   | m 
 
 
-### MAV_CMD_NAV_LOITER_TO_ALT (31) {#MAV_CMD_NAV_LOITER_TO_ALT}
+### MAV_CMD_NAV_LOITER_TO_ALT (31) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_NAV_LOITER_TO_ALT}
 
 Begin loiter at the specified Latitude and Longitude.  If Lat=Lon=0, then loiter at the current position.  Don't consider the navigation command complete (don't leave loiter) until the altitude has been reached. Additionally, if the Heading Required parameter is non-zero the aircraft will not leave the loiter until heading toward the next waypoint.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
-1 (Heading Required) | Leave loiter circle only when track heading towards the next waypoint (MAV_BOOL_FALSE: Leave when altitude reached). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
+1 (Heading Required) | Leave loiter circle only when track heading towards the next waypoint (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE causes leaving when altitude is reached. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
 2 (Radius) | Loiter radius around waypoint for forward-only moving vehicles (not multicopters). If positive loiter clockwise, negative counter-clockwise, 0 means no change to standard loiter. |   | m 
 3 | Empty |   |   
-4 (Xtrack Location) | Loiter circle exit location and/or path to next waypoint ("xtrack") for forward-only moving vehicles (not multicopters). 0 for the vehicle to converge towards the center xtrack when it leaves the loiter (the line between the centers of the current and next waypoint), 1 to converge to the direct line between the location that the vehicle exits the loiter radius and the next waypoint. Otherwise the angle (in degrees) between the tangent of the loiter circle and the center xtrack at which the vehicle must leave the loiter (and converge to the center xtrack). NaN to use the current system default xtrack behaviour. | min: 0 max: 1 inc: 1 |   
+4 (Xtrack Location) | Loiter circle exit location and/or path to next waypoint ("xtrack") for forward-only moving vehicles (not multicopters). 0 for the vehicle to converge towards the center xtrack when it leaves the loiter (the line between the centers of the current and next waypoint), 1 to converge to the direct line between the location that the vehicle exits the loiter radius and the next waypoint. NaN to use the current system default xtrack behaviour. | min: 0 max: 1 inc: 1 |   
 5 (Latitude) | Latitude |   |   
 6 (Longitude) | Longitude |   |   
 7 (Altitude) | Altitude |   | m 
 
 
-### MAV_CMD_DO_FOLLOW (32) {#MAV_CMD_DO_FOLLOW}
+### MAV_CMD_DO_FOLLOW (32) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_FOLLOW}
 
 Begin following a target
 
@@ -6754,7 +6900,7 @@ Param (Label) | Description | Values | Units
 7 (Time to Land) | Time to land in which the MAV should go to the default position hold mode after a message RX timeout. | min: 0 | s 
 
 
-### MAV_CMD_DO_FOLLOW_REPOSITION (33) {#MAV_CMD_DO_FOLLOW_REPOSITION}
+### MAV_CMD_DO_FOLLOW_REPOSITION (33) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_FOLLOW_REPOSITION}
 
 Reposition the MAV after a follow target command has been sent
 
@@ -6769,9 +6915,14 @@ Param (Label) | Description | Units
 7 (Y Offset) | Y offset from target | m 
 
 
-### MAV_CMD_DO_ORBIT (34) {#MAV_CMD_DO_ORBIT}
+### MAV_CMD_DO_ORBIT (34) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_ORBIT}
 
 Start orbiting on the circumference of a circle defined by the parameters. Setting values to NaN/INT32_MAX (as appropriate) results in using defaults.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6779,12 +6930,12 @@ Param (Label) | Description | Values | Units
 2 (Velocity) | Tangential Velocity. NaN: Use vehicle default velocity, or current velocity if already orbiting. |   | m/s 
 3 (Yaw Behavior) | Yaw behavior of the vehicle. | [ORBIT_YAW_BEHAVIOUR](#ORBIT_YAW_BEHAVIOUR) |   
 4 (Orbits) | Orbit around the centre point for this many radians (i.e. for a three-quarter orbit set 270*Pi/180). 0: Orbit forever. NaN: Use vehicle default, or current value if already orbiting. | min: 0 | rad 
-5 (Latitude/X) | Center point latitude (if no MAV_FRAME specified) / X coordinate according to MAV_FRAME. INT32_MAX (or NaN if sent in COMMAND_LONG): Use current vehicle position, or current center if already orbiting. |   |   
-6 (Longitude/Y) | Center point longitude (if no MAV_FRAME specified) / Y coordinate according to MAV_FRAME. INT32_MAX (or NaN if sent in COMMAND_LONG): Use current vehicle position, or current center if already orbiting. |   |   
+5 (Latitude/X) | Center point latitude (if no MAV_FRAME specified) / X coordinate according to MAV_FRAME. INT32_MAX (COMMAND_INT) or NaN (COMMAND_LONG): Use current vehicle position, or current center if already orbiting. |   |   
+6 (Longitude/Y) | Center point longitude (if no MAV_FRAME specified) / Y coordinate according to MAV_FRAME. INT32_MAX (COMMAND_INT) or NaN (COMMAND_LONG): Use current vehicle position, or current center if already orbiting. |   |   
 7 (Altitude/Z) | Center point altitude (MSL) (if no MAV_FRAME specified) / Z coordinate according to MAV_FRAME. NaN: Use current vehicle altitude. |   |   
 
 
-### MAV_CMD_DO_FIGURE_EIGHT (35) {#MAV_CMD_DO_FIGURE_EIGHT}
+### MAV_CMD_DO_FIGURE_EIGHT (35) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_FIGURE_EIGHT}
 
 Fly a figure eight path as defined by the parameters.
 
@@ -6793,23 +6944,33 @@ The command is intended for fixed wing vehicles (and VTOL hybrids flying in fixe
 This command only defines the flight path. Speed should be set independently (use e.g. [MAV_CMD_DO_CHANGE_SPEED](#MAV_CMD_DO_CHANGE_SPEED)).
 Yaw and other degrees of freedom are not specified, and will be flight-stack specific (on vehicles where they can be controlled independent of the heading).
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 (Major Radius) | Major axis radius of the figure eight. Positive: orbit the north circle clockwise. Negative: orbit the north circle counter-clockwise.<br>NaN: The radius will be set to 2.5 times the minor radius and direction is clockwise.<br>Must be greater or equal to two times the minor radius for feasible values. | m 
 2 (Minor Radius) | Minor axis radius of the figure eight. Defines the radius of the two circles that make up the figure. Negative value has no effect.<br>NaN: The radius will be set to the default loiter radius. | m 
 3 | |   
 4 (Orientation) | Orientation of the figure eight major axis with respect to true north (range: [-pi,pi]). NaN: use default orientation aligned to true north. | rad 
-5 (Latitude/X) | Center point latitude/X coordinate according to MAV_FRAME. If no MAV_FRAME specified, MAV_FRAME_GLOBAL is assumed.<br>INT32_MAX or NaN: Use current vehicle position, or current center if already loitering. |   
-6 (Longitude/Y) | Center point longitude/Y coordinate according to MAV_FRAME. If no MAV_FRAME specified, MAV_FRAME_GLOBAL is assumed.<br>INT32_MAX or NaN: Use current vehicle position, or current center if already loitering. |   
+5 (Latitude/X) | Center point latitude/X coordinate according to MAV_FRAME. If no MAV_FRAME specified, MAV_FRAME_GLOBAL is assumed.<br>INT32_MAX (COMMAND_INT) or NaN (COMMAND_LONG): Use current vehicle position, or current center if already loitering. |   
+6 (Longitude/Y) | Center point longitude/Y coordinate according to MAV_FRAME. If no MAV_FRAME specified, MAV_FRAME_GLOBAL is assumed.<br>INT32_MAX (COMMAND_INT) or NaN (COMMAND_LONG): Use current vehicle position, or current center if already loitering. |   
 7 (Altitude/Z) | Center point altitude MSL/Z coordinate according to MAV_FRAME. If no MAV_FRAME specified, MAV_FRAME_GLOBAL is assumed.<br>INT32_MAX or NaN: Use current vehicle altitude. |   
 
 
-### MAV_CMD_NAV_ARC_WAYPOINT (36) {#MAV_CMD_NAV_ARC_WAYPOINT}
+### MAV_CMD_NAV_ARC_WAYPOINT (36) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_NAV_ARC_WAYPOINT}
 
 Circular arc path waypoint.
 
 This defines the end/exit point and angle (param1) of an arc path from the previous waypoint. A position is required before this command to define the start of the arc (e.g. current position, a [MAV_CMD_NAV_WAYPOINT](#MAV_CMD_NAV_WAYPOINT), or a [MAV_CMD_NAV_ARC_WAYPOINT](#MAV_CMD_NAV_ARC_WAYPOINT)).
 The resulting path is a circular arc in the NE frame, with the difference in height being defined by the difference in waypoint altitudes.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6819,9 +6980,16 @@ Param (Label) | Description | Values | Units
 7 (Altitude) | Altitude |   | m 
 
 
-### MAV_CMD_NAV_ROI (80) {#MAV_CMD_NAV_ROI}
+### MAV_CMD_NAV_ROI (80) — [SUP] <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_ROI}
+
+<span class="warning">**SUPERSEDED:** Replaced By `MAV_CMD_DO_SET_ROI_*` (2018-01)</span>
 
 Sets the region of interest (ROI) for a sensor set or the vehicle itself. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values
 --- | --- | ---
@@ -6834,9 +7002,14 @@ Param (Label) | Description | Values
 7 (Z) | z |   
 
 
-### MAV_CMD_NAV_PATHPLANNING (81) {#MAV_CMD_NAV_PATHPLANNING}
+### MAV_CMD_NAV_PATHPLANNING (81) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_PATHPLANNING}
 
 Control autonomous path planning on the MAV.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6849,9 +7022,14 @@ Param (Label) | Description | Values | Units
 7 (Altitude/Z) | Altitude/Z of goal |   |   
 
 
-### MAV_CMD_NAV_SPLINE_WAYPOINT (82) {#MAV_CMD_NAV_SPLINE_WAYPOINT}
+### MAV_CMD_NAV_SPLINE_WAYPOINT (82) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_NAV_SPLINE_WAYPOINT}
 
 Navigate to waypoint using a spline path.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6864,9 +7042,14 @@ Param (Label) | Description | Values | Units
 7 (Altitude/Z) | Altitude/Z of goal |   |   
 
 
-### MAV_CMD_NAV_VTOL_TAKEOFF (84) {#MAV_CMD_NAV_VTOL_TAKEOFF}
+### MAV_CMD_NAV_VTOL_TAKEOFF (84) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_VTOL_TAKEOFF}
 
 Takeoff from ground using VTOL mode, and transition to forward flight with specified heading. The command should be ignored by vehicles that dont support both VTOL and fixed-wing flight (multicopters, boats,etc.).
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6879,9 +7062,14 @@ Param (Label) | Description | Values | Units
 7 (Altitude) | Altitude |   | m 
 
 
-### MAV_CMD_NAV_VTOL_LAND (85) {#MAV_CMD_NAV_VTOL_LAND}
+### MAV_CMD_NAV_VTOL_LAND (85) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_VTOL_LAND}
 
 Land using VTOL mode
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6894,13 +7082,13 @@ Param (Label) | Description | Values | Units
 7 (Ground Altitude) | Altitude (ground level) relative to the current coordinate frame. NaN to use system default landing altitude (ignore value). |   | m 
 
 
-### MAV_CMD_NAV_GUIDED_ENABLE (92) {#MAV_CMD_NAV_GUIDED_ENABLE}
+### MAV_CMD_NAV_GUIDED_ENABLE (92) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_GUIDED_ENABLE}
 
 Hand control over to an external controller
 
 Param (Label) | Description | Values
 --- | --- | ---
-1 (Enable) | Guided mode on (MAV_BOOL_FALSE: Off). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
+1 (Enable) | Guided mode on (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE turns guided mode off. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 2 | Empty |   
 3 | Empty |   
 4 | Empty |   
@@ -6909,7 +7097,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_NAV_DELAY (93) {#MAV_CMD_NAV_DELAY}
+### MAV_CMD_NAV_DELAY (93) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_NAV_DELAY}
 
 Delay the next navigation command a number of seconds or until a specified time
 
@@ -6924,9 +7112,14 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_NAV_PAYLOAD_PLACE (94) {#MAV_CMD_NAV_PAYLOAD_PLACE}
+### MAV_CMD_NAV_PAYLOAD_PLACE (94) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_PAYLOAD_PLACE}
 
 Descend and place payload. Vehicle moves to specified location, descends until it detects a hanging payload has reached the ground, and then releases the payload. If ground is not detected before the reaching the maximum descent value (param1), the command will complete without releasing the payload.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -6954,7 +7147,7 @@ Param (Label) | Description
 7 | Empty 
 
 
-### MAV_CMD_CONDITION_DELAY (112) {#MAV_CMD_CONDITION_DELAY}
+### MAV_CMD_CONDITION_DELAY (112) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_CONDITION_DELAY}
 
 Delay mission state machine.
 
@@ -6969,7 +7162,7 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_CONDITION_CHANGE_ALT (113) {#MAV_CMD_CONDITION_CHANGE_ALT}
+### MAV_CMD_CONDITION_CHANGE_ALT (113) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_CONDITION_CHANGE_ALT}
 
 Ascend/descend to target altitude at specified rate. Delay mission state machine until desired altitude reached.
 
@@ -6984,7 +7177,7 @@ Param (Label) | Description | Units
 7 (Altitude) | Target Altitude | m 
 
 
-### MAV_CMD_CONDITION_DISTANCE (114) {#MAV_CMD_CONDITION_DISTANCE}
+### MAV_CMD_CONDITION_DISTANCE (114) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_CONDITION_DISTANCE}
 
 Delay mission state machine until within desired distance of next NAV point.
 
@@ -6999,7 +7192,7 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_CONDITION_YAW (115) {#MAV_CMD_CONDITION_YAW}
+### MAV_CMD_CONDITION_YAW (115) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_CONDITION_YAW}
 
 Reach a certain target angle.
 
@@ -7008,7 +7201,7 @@ Param (Label) | Description | Values | Units
 1 (Angle) | target angle [0-360]. Absolute angles: 0 is north. Relative angle: 0 is initial yaw. Direction set by param3. | min: 0 max: 360 | deg 
 2 (Angular Speed) | angular speed | min: 0 | deg/s 
 3 (Direction) | direction: -1: counter clockwise, 0: shortest direction, 1: clockwise | min: -1 max: 1 inc: 1 |   
-4 (Relative) | Relative offset (MAV_BOOL_FALSE: absolute angle). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
+4 (Relative) | Relative offset (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE specifies an absolute angle. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
 5 | Empty |   |   
 6 | Empty |   |   
 7 | Empty |   |   
@@ -7029,7 +7222,7 @@ Param (Label) | Description
 7 | Empty 
 
 
-### MAV_CMD_DO_SET_MODE (176) {#MAV_CMD_DO_SET_MODE}
+### MAV_CMD_DO_SET_MODE (176) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_MODE}
 
 Set system mode.
 
@@ -7044,7 +7237,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_JUMP (177) {#MAV_CMD_DO_JUMP}
+### MAV_CMD_DO_JUMP (177) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_DO_JUMP}
 
 Jump to the desired command in the mission list.  Repeat this action only the specified number of times
 
@@ -7059,7 +7252,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_CHANGE_SPEED (178) {#MAV_CMD_DO_CHANGE_SPEED}
+### MAV_CMD_DO_CHANGE_SPEED (178) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_CHANGE_SPEED}
 
 Change speed and/or throttle set points. The value persists until it is overridden or there is a mode change
 
@@ -7074,16 +7267,21 @@ Param (Label) | Description | Values | Units
 7 | |   |   
 
 
-### MAV_CMD_DO_SET_HOME (179) {#MAV_CMD_DO_SET_HOME}
+### MAV_CMD_DO_SET_HOME (179) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_HOME}
 
 Sets the home position to either to the current position or a specified position.
 The home position is the default position that the system will return to and land on.
 The position is set automatically by the system during the takeoff (and may also be set using this command).
 Note: the current home position may be emitted in a [HOME_POSITION](#HOME_POSITION) message on request (using [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) with param1=242).
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
-1 (Use Current) | Use current location (MAV_BOOL_FALSE: use specified location). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
+1 (Use Current) | Use current location (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE uses the specified location. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
 2 (Roll) | Roll angle (of surface). Range: -180..180 degrees. NAN or 0 means value not set. 0.01 indicates zero roll. | min: -180 max: 180 | deg 
 3 (Pitch) | Pitch angle (of surface). Range: -90..90 degrees. NAN or 0 means value not set. 0.01 means zero pitch. | min: -90 max: 90 | deg 
 4 (Yaw) | Yaw angle. NaN to use default heading. Range: -180..180 degrees. | min: -180 max: 180 | deg 
@@ -7092,7 +7290,7 @@ Param (Label) | Description | Values | Units
 7 (Altitude) | Altitude |   | m 
 
 
-### MAV_CMD_DO_SET_PARAMETER (180) — [DEP] {#MAV_CMD_DO_SET_PARAMETER}
+### MAV_CMD_DO_SET_PARAMETER (180) — [DEP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_PARAMETER}
 
 <span class="warning">**DEPRECATED:** Replaced By [PARAM_SET](#PARAM_SET) (2024-04)</span>
 
@@ -7109,7 +7307,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_SET_RELAY (181) {#MAV_CMD_DO_SET_RELAY}
+### MAV_CMD_DO_SET_RELAY (181) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_RELAY}
 
 Set a relay to a condition. The current value may optionally be reported using [RELAY_STATUS](#RELAY_STATUS).
 
@@ -7124,7 +7322,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_REPEAT_RELAY (182) {#MAV_CMD_DO_REPEAT_RELAY}
+### MAV_CMD_DO_REPEAT_RELAY (182) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_REPEAT_RELAY}
 
 Cycle a relay on and off for a desired number of cycles with a desired period.
 
@@ -7139,7 +7337,7 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_SET_SERVO (183) {#MAV_CMD_DO_SET_SERVO}
+### MAV_CMD_DO_SET_SERVO (183) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_SERVO}
 
 Set a servo to a desired PWM value.
 
@@ -7154,7 +7352,7 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_REPEAT_SERVO (184) {#MAV_CMD_DO_REPEAT_SERVO}
+### MAV_CMD_DO_REPEAT_SERVO (184) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_REPEAT_SERVO}
 
 Cycle a between its nominal setting and a desired PWM for a desired number of cycles with a desired period.
 
@@ -7169,7 +7367,7 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_FLIGHTTERMINATION (185) {#MAV_CMD_DO_FLIGHTTERMINATION}
+### MAV_CMD_DO_FLIGHTTERMINATION (185) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_FLIGHTTERMINATION}
 
 Terminate flight immediately.
 
@@ -7191,7 +7389,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_CHANGE_ALTITUDE (186) {#MAV_CMD_DO_CHANGE_ALTITUDE}
+### MAV_CMD_DO_CHANGE_ALTITUDE (186) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_CHANGE_ALTITUDE}
 
 Change altitude set point.
 
@@ -7206,7 +7404,7 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_SET_ACTUATOR (187) {#MAV_CMD_DO_SET_ACTUATOR}
+### MAV_CMD_DO_SET_ACTUATOR (187) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_ACTUATOR}
 
 Sets actuators (e.g. servos) to a desired value. The actuator numbers are mapped to specific outputs (e.g. on any MAIN or AUX PWM or UAVCAN) using a flight-stack specific mechanism (i.e. a parameter).
 
@@ -7216,25 +7414,28 @@ Param (Label) | Description | Values
 2 (Actuator 2) | Actuator 2 value, scaled from [-1 to 1]. NaN to ignore. | min: -1 max: 1 
 3 (Actuator 3) | Actuator 3 value, scaled from [-1 to 1]. NaN to ignore. | min: -1 max: 1 
 4 (Actuator 4) | Actuator 4 value, scaled from [-1 to 1]. NaN to ignore. | min: -1 max: 1 
-5 (Actuator 5) | Actuator 5 value, scaled from [-1 to 1]. NaN to ignore. | min: -1 max: 1 
-6 (Actuator 6) | Actuator 6 value, scaled from [-1 to 1]. NaN to ignore. | min: -1 max: 1 
+5 (Actuator 5) | Actuator 5 value.<br>If sent in COMMAND_LONG: value is scaled from [-1 to 1]. NaN to ignore.<br>If sent in COMMAND_INT or MISSION_ITEM_INT: value is scaled by 1e7. INT32_MAX to ignore. |   
+6 (Actuator 6) | Actuator 6 value.<br>If sent in COMMAND_LONG: value is scaled from [-1 to 1]. NaN to ignore.<br>If sent in COMMAND_INT or MISSION_ITEM_INT: value is scaled by 1e7. INT32_MAX to ignore. |   
 7 (Index) | Index of actuator set (i.e if set to 1, Actuator 1 becomes Actuator 7) | min: 0 inc: 1 
 
 
-### MAV_CMD_DO_RETURN_PATH_START (188) — [WIP] {#MAV_CMD_DO_RETURN_PATH_START}
-
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
+### MAV_CMD_DO_RETURN_PATH_START (188) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_RETURN_PATH_START}
 
 Mission item to specify the start of a failsafe/landing return-path segment (the end of the segment is the next [MAV_CMD_DO_LAND_START](#MAV_CMD_DO_LAND_START) item).
 
 A vehicle that is using missions for landing (e.g. in a return mode) will join the mission on the closest path of the return-path segment (instead of [MAV_CMD_DO_LAND_START](#MAV_CMD_DO_LAND_START) or the nearest waypoint).
 The main use case is to minimize the failsafe flight path in corridor missions, where the inbound/outbound paths are constrained (by geofences) to the same particular path.
-The [MAV_CMD_NAV_RETURN_PATH_START](#MAV_CMD_NAV_RETURN_PATH_START) would be placed at the start of the return path.
+The [MAV_CMD_DO_RETURN_PATH_START](#MAV_CMD_DO_RETURN_PATH_START) would be placed at the start of the return path.
 If a failsafe occurs on the outbound path the vehicle will move to the nearest point on the return path (which is parallel for this kind of mission), effectively turning round and following the shortest path to landing.
 If a failsafe occurs on the inbound path the vehicle is already on the return segment and will continue to landing.
 The Latitude/Longitude/Altitude are optional, and may be set to 0 if not needed.
 If specified, the item defines the waypoint at which the return segment starts.
 If sent using as a command, the vehicle will perform a mission landing (using the land segment if defined) or reject the command if mission landings are not supported, or no mission landing is defined. When used as a command any position information in the command is ignored.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -7242,12 +7443,12 @@ Param (Label) | Description | Units
 2 | Empty |   
 3 | Empty |   
 4 | Empty |   
-5 (Latitude) | Latitudee. 0: not used. |   
-6 (Longitude) | Longitudee. 0: not used. |   
-7 (Altitude) | Altitudee. 0: not used. | m 
+5 (Latitude) | Latitude. 0: not used. |   
+6 (Longitude) | Longitude. 0: not used. |   
+7 (Altitude) | Altitude. 0: not used. | m 
 
 
-### MAV_CMD_DO_LAND_START (189) {#MAV_CMD_DO_LAND_START}
+### MAV_CMD_DO_LAND_START (189) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_LAND_START}
 
 Mission item to mark the start of a mission landing pattern, or a command to land with a mission landing pattern.
 
@@ -7260,6 +7461,11 @@ If the marker item position has zero-values for latitude, longitude, and altitud
 When sent as a command it triggers a landing using a mission landing pattern.
 The location parameters are not used in this case, and should be set to 0.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | Empty |   
@@ -7271,9 +7477,9 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude for landing sequence selection, or 0 (see description). Ignored in commands (set 0). | m 
 
 
-### MAV_CMD_DO_RALLY_LAND (190) {#MAV_CMD_DO_RALLY_LAND}
+### MAV_CMD_DO_RALLY_LAND (190) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_RALLY_LAND}
 
-Mission command to perform a landing from a rally point.
+Command to perform a landing from a rally point.
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -7286,9 +7492,9 @@ Param (Label) | Description | Units
 7 | Empty |   
 
 
-### MAV_CMD_DO_GO_AROUND (191) {#MAV_CMD_DO_GO_AROUND}
+### MAV_CMD_DO_GO_AROUND (191) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_GO_AROUND}
 
-Mission command to safely abort an autonomous landing.
+Command to safely abort an autonomous landing.
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -7301,9 +7507,14 @@ Param (Label) | Description | Units
 7 | Empty |   
 
 
-### MAV_CMD_DO_REPOSITION (192) {#MAV_CMD_DO_REPOSITION}
+### MAV_CMD_DO_REPOSITION (192) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_REPOSITION}
 
 Reposition the vehicle to a specific WGS84 global position. This command is intended for guided commands (for missions use [MAV_CMD_NAV_WAYPOINT](#MAV_CMD_NAV_WAYPOINT) instead).
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -7316,13 +7527,13 @@ Param (Label) | Description | Values | Units
 7 (Altitude) | Altitude |   | m 
 
 
-### MAV_CMD_DO_PAUSE_CONTINUE (193) {#MAV_CMD_DO_PAUSE_CONTINUE}
+### MAV_CMD_DO_PAUSE_CONTINUE (193) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_PAUSE_CONTINUE}
 
 If in a GPS controlled position mode, hold the current position or continue.
 
 Param (Label) | Description | Values
 --- | --- | ---
-1 (Continue) | Continue mission (MAV_BOOL_TRUE), Pause current mission or reposition command, hold current position (MAV_BOOL_FALSE). Values not equal to 0 or 1 are invalid. A VTOL capable vehicle should enter hover mode (multicopter and VTOL planes). A plane should loiter with the default loiter radius. | [MAV_BOOL](#MAV_BOOL) 
+1 (Continue) | Continue mission (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE pauses the current mission or reposition command and holds current position (a VTOL capable vehicle should enter hover mode (multicopter and VTOL planes); a plane should loiter with the default loiter radius). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 2 | Reserved |   
 3 | Reserved |   
 4 | Reserved |   
@@ -7331,13 +7542,13 @@ Param (Label) | Description | Values
 7 | Reserved |   
 
 
-### MAV_CMD_DO_SET_REVERSE (194) {#MAV_CMD_DO_SET_REVERSE}
+### MAV_CMD_DO_SET_REVERSE (194) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_REVERSE}
 
 Set moving direction to forward or reverse.
 
 Param (Label) | Description | Values
 --- | --- | ---
-1 (Reverse) | Reverse direction (MAV_BOOL_FALSE: Forward direction). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
+1 (Reverse) | Reverse direction (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE specifies forward direction. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 2 | Empty |   
 3 | Empty |   
 4 | Empty |   
@@ -7346,9 +7557,14 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_SET_ROI_LOCATION (195) {#MAV_CMD_DO_SET_ROI_LOCATION}
+### MAV_CMD_DO_SET_ROI_LOCATION (195) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_ROI_LOCATION}
 
-Sets the region of interest (ROI) to a location. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras. This command can be sent to a gimbal manager but not to a gimbal device. A gimbal is not to react to this message.
+Sets the region of interest (ROI) to a location. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -7361,7 +7577,7 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude of ROI location | m 
 
 
-### MAV_CMD_DO_SET_ROI_WPNEXT_OFFSET (196) {#MAV_CMD_DO_SET_ROI_WPNEXT_OFFSET}
+### MAV_CMD_DO_SET_ROI_WPNEXT_OFFSET (196) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_DO_SET_ROI_WPNEXT_OFFSET}
 
 Sets the region of interest (ROI) to be toward next waypoint, with optional pitch/roll/yaw offset. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras. This command can be sent to a gimbal manager but not to a gimbal device. A gimbal device is not to react to this message.
 
@@ -7376,9 +7592,9 @@ Param (Label) | Description | Units
 7 (Yaw Offset) | Yaw offset from next waypoint, positive yawing to the right | deg 
 
 
-### MAV_CMD_DO_SET_ROI_NONE (197) {#MAV_CMD_DO_SET_ROI_NONE}
+### MAV_CMD_DO_SET_ROI_NONE (197) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_ROI_NONE}
 
-Cancels any previous ROI command returning the vehicle/sensors to default flight characteristics. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras. This command can be sent to a gimbal manager but not to a gimbal device. A gimbal device is not to react to this message. After this command the gimbal manager should go back to manual input if available, and otherwise assume a neutral position.
+Cancels any previous ROI command returning the vehicle/sensors to default flight characteristics. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras. After this command the gimbal manager should go back to manual input if available, and otherwise assume a neutral position.
 
 Param (Label) | Description
 --- | ---
@@ -7391,7 +7607,7 @@ Param (Label) | Description
 7 | Empty 
 
 
-### MAV_CMD_DO_SET_ROI_SYSID (198) {#MAV_CMD_DO_SET_ROI_SYSID}
+### MAV_CMD_DO_SET_ROI_SYSID (198) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_ROI_SYSID}
 
 Mount tracks system with specified system ID. Determination of target vehicle position may be done with [GLOBAL_POSITION_INT](#GLOBAL_POSITION_INT) or any other means. This command can be sent to a gimbal manager but not to a gimbal device. A gimbal device is not to react to this message.
 
@@ -7401,7 +7617,7 @@ Param (Label) | Description | Values
 2 (Gimbal device ID) | Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals). |   
 
 
-### MAV_CMD_DO_CONTROL_VIDEO (200) {#MAV_CMD_DO_CONTROL_VIDEO}
+### MAV_CMD_DO_CONTROL_VIDEO (200) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_CONTROL_VIDEO}
 
 Control onboard camera system.
 
@@ -7416,9 +7632,16 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_SET_ROI (201) {#MAV_CMD_DO_SET_ROI}
+### MAV_CMD_DO_SET_ROI (201) — [SUP] <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_ROI}
+
+<span class="warning">**SUPERSEDED:** Replaced By `MAV_CMD_DO_SET_ROI_*` (2018-01)</span>
 
 Sets the region of interest (ROI) for a sensor set or the vehicle itself. This can then be used by the vehicle's control system to control the vehicle attitude and the attitude of various sensors such as cameras.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values
 --- | --- | ---
@@ -7431,7 +7654,7 @@ Param (Label) | Description | Values
 7 | MAV_ROI_WPNEXT: yaw offset from next waypoint, MAV_ROI_LOCATION: altitude |   
 
 
-### MAV_CMD_DO_DIGICAM_CONFIGURE (202) {#MAV_CMD_DO_DIGICAM_CONFIGURE}
+### MAV_CMD_DO_DIGICAM_CONFIGURE (202) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_DIGICAM_CONFIGURE}
 
 Configure digital camera. This is a fallback message for systems that have not yet implemented [PARAM_EXT_XXX](#PARAM_EXT_XXX) messages and camera definition files (see https://mavlink.io/en/services/camera_def.html ).
 
@@ -7446,7 +7669,7 @@ Param (Label) | Description | Values | Units
 7 (Engine Cut-off) | Main engine cut-off time before camera trigger. (0 means no cut-off) | min: 0 inc: 1 | ds 
 
 
-### MAV_CMD_DO_DIGICAM_CONTROL (203) {#MAV_CMD_DO_DIGICAM_CONTROL}
+### MAV_CMD_DO_DIGICAM_CONTROL (203) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_DIGICAM_CONTROL}
 
 Control digital camera. This is a fallback message for systems that have not yet implemented [PARAM_EXT_XXX](#PARAM_EXT_XXX) messages and camera definition files (see https://mavlink.io/en/services/camera_def.html ).
 
@@ -7461,7 +7684,9 @@ Param (Label) | Description
 7 (Shot ID) | Test shot identifier. If set to 1, image will only be captured, but not counted towards internal frame count. 
 
 
-### MAV_CMD_DO_MOUNT_CONFIGURE (204) {#MAV_CMD_DO_MOUNT_CONFIGURE}
+### MAV_CMD_DO_MOUNT_CONFIGURE (204) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_MOUNT_CONFIGURE}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE](#MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE) (2020-01) — The message can still be used to communicate with legacy gimbals implementing it.)</span>
 
 Mission command to configure a camera or antenna mount
 
@@ -7476,7 +7701,9 @@ Param (Label) | Description | Values
 7 (Yaw Input Mode) | Yaw input (0 = angle body frame, 1 = angular rate, 2 = angle absolute frame) |   
 
 
-### MAV_CMD_DO_MOUNT_CONTROL (205) {#MAV_CMD_DO_MOUNT_CONTROL}
+### MAV_CMD_DO_MOUNT_CONTROL (205) — [SUP] <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_MOUNT_CONTROL}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW](#MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW) (2020-01) — This message is ambiguous and inconsistent. It has been superseded by [MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW](#MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW) and `MAV_CMD_DO_SET_ROI_*` variants. The message can still be used to communicate with legacy gimbals implementing it.)</span>
 
 Mission command to control a camera or antenna mount
 
@@ -7491,7 +7718,7 @@ Param (Label) | Description | Values | Units
 7 (Mode) | Mount mode. | [MAV_MOUNT_MODE](#MAV_MOUNT_MODE) |   
 
 
-### MAV_CMD_DO_SET_CAM_TRIGG_DIST (206) {#MAV_CMD_DO_SET_CAM_TRIGG_DIST}
+### MAV_CMD_DO_SET_CAM_TRIGG_DIST (206) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_CAM_TRIGG_DIST}
 
 Mission command to set camera trigger distance for this flight. The camera is triggered each time this distance is exceeded. This command can also be used to set the shutter integration time for the camera.
 
@@ -7506,7 +7733,7 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_FENCE_ENABLE (207) {#MAV_CMD_DO_FENCE_ENABLE}
+### MAV_CMD_DO_FENCE_ENABLE (207) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_FENCE_ENABLE}
 
 Enable the geofence.
 This can be used in a mission or via the command protocol.
@@ -7525,7 +7752,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_PARACHUTE (208) {#MAV_CMD_DO_PARACHUTE}
+### MAV_CMD_DO_PARACHUTE (208) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_PARACHUTE}
 
 Mission item/command to release a parachute or enable/disable auto release.
 
@@ -7540,7 +7767,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_MOTOR_TEST (209) {#MAV_CMD_DO_MOTOR_TEST}
+### MAV_CMD_DO_MOTOR_TEST (209) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_MOTOR_TEST}
 
 Command to perform motor test.
 
@@ -7555,13 +7782,13 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_INVERTED_FLIGHT (210) {#MAV_CMD_DO_INVERTED_FLIGHT}
+### MAV_CMD_DO_INVERTED_FLIGHT (210) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_INVERTED_FLIGHT}
 
 Change to/from inverted flight.
 
 Param (Label) | Description | Values
 --- | --- | ---
-1 (Inverted) | Inverted flight (MAV_BOOL_False: normal flight). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
+1 (Inverted) | Inverted flight (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE specifies normal flight. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 2 | Empty |   
 3 | Empty |   
 4 | Empty |   
@@ -7570,7 +7797,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_GRIPPER (211) {#MAV_CMD_DO_GRIPPER}
+### MAV_CMD_DO_GRIPPER (211) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_GRIPPER}
 
 Mission command to operate a gripper.
 
@@ -7585,13 +7812,13 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_AUTOTUNE_ENABLE (212) {#MAV_CMD_DO_AUTOTUNE_ENABLE}
+### MAV_CMD_DO_AUTOTUNE_ENABLE (212) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_AUTOTUNE_ENABLE}
 
 Enable/disable autotune.
 
 Param (Label) | Description | Values
 --- | --- | ---
-1 (Enable) | Enable autotune (MAV_BOOL_FALSE: disable autotune). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
+1 (Enable) | Enable autotune (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE disables autotune. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 2 (Axis) | Specify axes for which autotuning is enabled/disabled. 0 indicates the field is unused (for compatibility reasons). If 0 the autopilot will follow its default behaviour, which is usually to tune all axes. | [AUTOTUNE_AXIS](#AUTOTUNE_AXIS) 
 3 | Empty. |   
 4 | Empty. |   
@@ -7600,7 +7827,7 @@ Param (Label) | Description | Values
 7 | Empty. |   
 
 
-### MAV_CMD_NAV_SET_YAW_SPEED (213) {#MAV_CMD_NAV_SET_YAW_SPEED}
+### MAV_CMD_NAV_SET_YAW_SPEED (213) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_NAV_SET_YAW_SPEED}
 
 Sets a desired vehicle turn angle and speed change.
 
@@ -7608,14 +7835,14 @@ Param (Label) | Description | Values | Units
 --- | --- | --- | ---
 1 (Yaw) | Yaw angle to adjust steering by. |   | deg 
 2 (Speed) | Speed. |   | m/s 
-3 (Angle) | Relative final angle (MAV_BOOL_FALSE: Absolute angle). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
+3 (Angle) | Relative final angle (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE specifies an absolute angle. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
 4 | Empty |   |   
 5 | Empty |   |   
 6 | Empty |   |   
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_SET_CAM_TRIGG_INTERVAL (214) {#MAV_CMD_DO_SET_CAM_TRIGG_INTERVAL}
+### MAV_CMD_DO_SET_CAM_TRIGG_INTERVAL (214) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_CAM_TRIGG_INTERVAL}
 
 Mission command to set camera trigger interval for this flight. If triggering is enabled, the camera is triggered each time this interval expires. This command can also be used to set the shutter integration time for the camera.
 
@@ -7630,7 +7857,9 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_MOUNT_CONTROL_QUAT (220) {#MAV_CMD_DO_MOUNT_CONTROL_QUAT}
+### MAV_CMD_DO_MOUNT_CONTROL_QUAT (220) — [SUP] <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_MOUNT_CONTROL_QUAT}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW](#MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW) (2020-01)</span>
 
 Mission command to control a camera or antenna mount, using a quaternion as reference.
 
@@ -7645,7 +7874,7 @@ Param (Label) | Description
 7 | Empty 
 
 
-### MAV_CMD_DO_GUIDED_MASTER (221) {#MAV_CMD_DO_GUIDED_MASTER}
+### MAV_CMD_DO_GUIDED_MASTER (221) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_GUIDED_MASTER}
 
 set id of master controller
 
@@ -7660,7 +7889,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_DO_GUIDED_LIMITS (222) {#MAV_CMD_DO_GUIDED_LIMITS}
+### MAV_CMD_DO_GUIDED_LIMITS (222) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_GUIDED_LIMITS}
 
 Set limits for external control
 
@@ -7675,14 +7904,14 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_ENGINE_CONTROL (223) {#MAV_CMD_DO_ENGINE_CONTROL}
+### MAV_CMD_DO_ENGINE_CONTROL (223) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_ENGINE_CONTROL}
 
 Control vehicle engine. This is interpreted by the vehicles engine controller to change the target engine state. It is intended for vehicles with internal combustion engines
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
-1 (Start Engine) | Start engine (MAV_BOOL_False: Stop engine). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
-2 (Cold Start) | Cold start engine (MAV_BOOL_FALSE: Warm start). Values not equal to 0 or 1 are invalid. Controls use of choke where applicable | [MAV_BOOL](#MAV_BOOL) |   
+1 (Start Engine) | Start engine (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE stops the engine. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
+2 (Cold Start) | Cold start engine (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE performs a warm start. Controls use of choke where applicable. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
 3 (Height Delay) | Height delay. This is for commanding engine start only after the vehicle has gained the specified height. Used in VTOL vehicles during takeoff to start engine after the aircraft is off the ground. Zero for no delay. | min: 0 | m 
 4 (Options) | A bitmask of options for engine control | [ENGINE_CONTROL_OPTIONS](#ENGINE_CONTROL_OPTIONS) |   
 5 | Empty |   |   
@@ -7690,7 +7919,7 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_SET_MISSION_CURRENT (224) {#MAV_CMD_DO_SET_MISSION_CURRENT}
+### MAV_CMD_DO_SET_MISSION_CURRENT (224) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_MISSION_CURRENT}
 
 Set the mission item with sequence number seq as the current item and emit [MISSION_CURRENT](#MISSION_CURRENT) (whether or not the mission number changed).
 If a mission is currently being executed, the system will continue to this new mission item on the shortest path, skipping any intermediate mission items.
@@ -7709,7 +7938,7 @@ The command will ACK with [MAV_RESULT_FAILED](#MAV_RESULT_FAILED) if the sequenc
 Param (Label) | Description | Values
 --- | --- | ---
 1 (Number) | Mission sequence value to set. -1 for the current mission item (use to reset mission without changing current mission item). | min: -1 inc: 1 
-2 (Reset Mission) | Reset mission (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid. Resets jump counters to initial values and changes mission state "completed" to be "active" or "paused". | [MAV_BOOL](#MAV_BOOL) 
+2 (Reset Mission) | Reset mission. A value of MAV_BOOL_TRUE resets jump counters to initial values and changes mission state "completed" to be "active" or "paused". Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 3 | Empty |   
 4 | Empty |   
 5 | Empty |   
@@ -7732,7 +7961,7 @@ Param (Label) | Description
 7 | Empty 
 
 
-### MAV_CMD_PREFLIGHT_CALIBRATION (241) {#MAV_CMD_PREFLIGHT_CALIBRATION}
+### MAV_CMD_PREFLIGHT_CALIBRATION (241) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_PREFLIGHT_CALIBRATION}
 
 Trigger calibration. This command will be only accepted if in pre-flight mode. Except for Temperature Calibration, only one sensor should be set in a single message and all others should be zero.
 
@@ -7740,14 +7969,14 @@ Param (Label) | Description | Values
 --- | --- | ---
 1 (Gyro Temperature) | 1: gyro calibration, 3: gyro temperature calibration | min: 0 max: 3 inc: 1 
 2 (Magnetometer) | Magnetometer calibration action. | [PREFLIGHT_CALIBRATION_MAGNETOMETER](#PREFLIGHT_CALIBRATION_MAGNETOMETER) 
-3 (Ground Pressure) | Ground pressure calibration. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
+3 (Ground Pressure) | Ground pressure calibration (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 4 (Remote Control) | 1: radio RC calibration, 2: RC trim calibration | min: 0 max: 1 inc: 1 
 5 (Accelerometer) | Accelerometer calibration action. | [PREFLIGHT_CALIBRATION_ACCELEROMETER](#PREFLIGHT_CALIBRATION_ACCELEROMETER) 
 6 (Compmot or Airspeed) | 1: APM: compass/motor interference calibration (PX4: airspeed calibration, deprecated), 2: airspeed calibration | min: 0 max: 2 inc: 1 
 7 (ESC or Baro) | 1: ESC calibration, 3: barometer temperature calibration | min: 0 max: 3 inc: 1 
 
 
-### MAV_CMD_PREFLIGHT_SET_SENSOR_OFFSETS (242) {#MAV_CMD_PREFLIGHT_SET_SENSOR_OFFSETS}
+### MAV_CMD_PREFLIGHT_SET_SENSOR_OFFSETS (242) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_PREFLIGHT_SET_SENSOR_OFFSETS}
 
 Set sensor offsets. This command will be only accepted if in pre-flight mode.
 
@@ -7762,7 +7991,7 @@ Param (Label) | Description | Values
 7 (6th Dimension) | Generic dimension 6, in the sensor's raw units |   
 
 
-### MAV_CMD_PREFLIGHT_UAVCAN (243) {#MAV_CMD_PREFLIGHT_UAVCAN}
+### MAV_CMD_PREFLIGHT_UAVCAN (243) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_PREFLIGHT_UAVCAN}
 
 Trigger UAVCAN configuration (actuator ID assignment and direction mapping). Note that this maps to the legacy UAVCAN v0 function [UAVCAN_ENUMERATE](#UAVCAN_ENUMERATE), which is intended to be executed just once during initial vehicle configuration (it is not a normal pre-flight command and has been poorly named).
 
@@ -7777,14 +8006,14 @@ Param (Label) | Description
 7 | Reserved 
 
 
-### MAV_CMD_PREFLIGHT_STORAGE (245) {#MAV_CMD_PREFLIGHT_STORAGE}
+### MAV_CMD_PREFLIGHT_STORAGE (245) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_PREFLIGHT_STORAGE}
 
 Request storage of different parameter values and logs. This command will be only accepted if in pre-flight mode.
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
 1 (Parameter Storage) | Action to perform on the persistent parameter storage | [PREFLIGHT_STORAGE_PARAMETER_ACTION](#PREFLIGHT_STORAGE_PARAMETER_ACTION) |   
-2 (Mission Storage) | Action to perform on the persistent mission storage | [PREFLIGHT_STORAGE_MISSION_ACTION](#PREFLIGHT_STORAGE_MISSION_ACTION) |   
+2 | Reserved |   |   
 3 (Logging Rate) | Onboard logging: 0: Ignore, 1: Start default rate logging, -1: Stop logging, > 1: logging rate (e.g. set to 1000 for 1000 Hz logging) | min: -1 inc: 1 | Hz 
 4 | Reserved |   |   
 5 | Empty |   |   
@@ -7792,7 +8021,7 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN (246) {#MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN}
+### MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN (246) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN}
 
 Request the reboot or shutdown of system components.
 
@@ -7807,9 +8036,14 @@ Param (Label) | Description | Values
 7 | WIP: ID (e.g. camera ID -1 for all IDs) |   
 
 
-### MAV_CMD_OVERRIDE_GOTO (252) {#MAV_CMD_OVERRIDE_GOTO}
+### MAV_CMD_OVERRIDE_GOTO (252) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_OVERRIDE_GOTO}
 
 Override current mission with command to pause mission, pause mission and move to position, continue/resume mission. When param 1 indicates that the mission is paused ([MAV_GOTO_DO_HOLD](#MAV_GOTO_DO_HOLD)), param 2 defines whether it holds in place or moves to another position.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -7822,7 +8056,7 @@ Param (Label) | Description | Values | Units
 7 (Altitude/Z) | Altitude/Z position. |   |   
 
 
-### MAV_CMD_OBLIQUE_SURVEY (260) {#MAV_CMD_OBLIQUE_SURVEY}
+### MAV_CMD_OBLIQUE_SURVEY (260) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_OBLIQUE_SURVEY}
 
 Mission command to set a Camera Auto Mount Pivoting Oblique Survey (Replaces [CAM_TRIGG_DIST](#CAM_TRIGG_DIST) for this purpose). The camera is triggered each time this distance is exceeded, then the mount moves to the next position. Params 4~6 set-up the angle limits and number of positions for oblique survey, where mount-enabled vehicles automatically roll the camera between shots to emulate an oblique camera setup (providing an increased HFOV). This command can also be used to set the shutter integration time for the camera.
 
@@ -7837,7 +8071,7 @@ Param (Label) | Description | Values | Units
 7 | Empty |   |   
 
 
-### MAV_CMD_DO_SET_STANDARD_MODE (262) {#MAV_CMD_DO_SET_STANDARD_MODE}
+### MAV_CMD_DO_SET_STANDARD_MODE (262) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_STANDARD_MODE}
 
 Enable the specified standard MAVLink mode.
 
@@ -7855,7 +8089,7 @@ Param (Label) | Description | Values
 7 | |   
 
 
-### MAV_CMD_MISSION_START (300) {#MAV_CMD_MISSION_START}
+### MAV_CMD_MISSION_START (300) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_MISSION_START}
 
 start running a mission
 
@@ -7865,7 +8099,7 @@ Param (Label) | Description | Values
 2 (Last Item) | last_item:  the last mission item to run (after this item is run, the mission ends) | min: 0 inc: 1 
 
 
-### MAV_CMD_ACTUATOR_TEST (310) {#MAV_CMD_ACTUATOR_TEST}
+### MAV_CMD_ACTUATOR_TEST (310) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_ACTUATOR_TEST}
 
 Actuator testing command. This is similar to [MAV_CMD_DO_MOTOR_TEST](#MAV_CMD_DO_MOTOR_TEST) but operates on the level of output functions, i.e. it is possible to test Motor1 independent from which output it is configured on. Autopilots must NACK this command with [MAV_RESULT_TEMPORARILY_REJECTED](#MAV_RESULT_TEMPORARILY_REJECTED) while armed.
 
@@ -7880,7 +8114,7 @@ Param (Label) | Description | Values | Units
 7 | |   |   
 
 
-### MAV_CMD_CONFIGURE_ACTUATOR (311) {#MAV_CMD_CONFIGURE_ACTUATOR}
+### MAV_CMD_CONFIGURE_ACTUATOR (311) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_CONFIGURE_ACTUATOR}
 
 Actuator configuration command.
 
@@ -7895,39 +8129,39 @@ Param (Label) | Description | Values
 7 | |   
 
 
-### MAV_CMD_COMPONENT_ARM_DISARM (400) {#MAV_CMD_COMPONENT_ARM_DISARM}
+### MAV_CMD_COMPONENT_ARM_DISARM (400) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_COMPONENT_ARM_DISARM}
 
 Arms / Disarms a component
 
 Param (Label) | Description | Values
 --- | --- | ---
-1 (Arm) | Arm (MAV_BOOL_FALSE: disarm). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
+1 (Arm) | Arm (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE disarms. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 2 (Force) | 0: arm-disarm unless prevented by safety checks (i.e. when landed), 21196: force arming/disarming (e.g. allow arming to override preflight checks and disarming in flight) | min: 0 max: 21196 inc: 21196 
 
 
-### MAV_CMD_RUN_PREARM_CHECKS (401) {#MAV_CMD_RUN_PREARM_CHECKS}
+### MAV_CMD_RUN_PREARM_CHECKS (401) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_RUN_PREARM_CHECKS}
 
 Instructs a target system to run pre-arm checks.
 
 This allows preflight checks to be run on demand, which may be useful on systems that normally run them at low rate, or which do not trigger checks when the armable state might have changed.
 This command should return [MAV_RESULT_ACCEPTED](#MAV_RESULT_ACCEPTED) if it will run the checks.
-The results of the checks are usually then reported in [SYS_STATUS](#SYS_STATUS) messages (this is system-specific).
+The results of the checks are usually then reported in [SYS_STATUS](#SYS_STATUS), EVENT, or STATUSTEXT messages (this is system-specific).
 The command should return [MAV_RESULT_TEMPORARILY_REJECTED](#MAV_RESULT_TEMPORARILY_REJECTED) if the system is already armed.
 
 Param (Label) | Description
 --- | ---
 
 
-### MAV_CMD_ILLUMINATOR_ON_OFF (405) {#MAV_CMD_ILLUMINATOR_ON_OFF}
+### MAV_CMD_ILLUMINATOR_ON_OFF (405) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_ILLUMINATOR_ON_OFF}
 
 Turns illuminators ON/OFF. An illuminator is a light source that is used for lighting up dark areas external to the system: e.g. a torch or searchlight (as opposed to a light source for illuminating the system itself, e.g. an indicator light).
 
 Param (Label) | Description | Values
 --- | --- | ---
-1 (Enable) | Illuminators on/off (MAV_BOOL_TRUE: illuminators on). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
+1 (Enable) | Illuminators on (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE turns illuminators off. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 
 
-### MAV_CMD_DO_ILLUMINATOR_CONFIGURE (406) {#MAV_CMD_DO_ILLUMINATOR_CONFIGURE}
+### MAV_CMD_DO_ILLUMINATOR_CONFIGURE (406) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_ILLUMINATOR_CONFIGURE}
 
 Configures illuminator settings. An illuminator is a light source that is used for lighting up dark areas external to the system: e.g. a torch or searchlight (as opposed to a light source for illuminating the system itself, e.g. an indicator light).
 
@@ -7939,7 +8173,9 @@ Param (Label) | Description | Values | Units
 4 (Strobe Duty) | Strobe duty cycle where 100% means it is on constantly and 0 means strobing is not used | min: 0 max: 100 | % 
 
 
-### MAV_CMD_GET_HOME_POSITION (410) {#MAV_CMD_GET_HOME_POSITION}
+### MAV_CMD_GET_HOME_POSITION (410) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_GET_HOME_POSITION}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2022-04)</span>
 
 Request the home position from the vehicle.
 
@@ -7956,7 +8192,7 @@ Param (Label) | Description
 7 | Reserved 
 
 
-### MAV_CMD_INJECT_FAILURE (420) {#MAV_CMD_INJECT_FAILURE}
+### MAV_CMD_INJECT_FAILURE (420) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_INJECT_FAILURE}
 
 Inject artificial failure for testing purposes. Note that autopilots should implement an additional protection before accepting this command such as a specific param setting.
 
@@ -7964,10 +8200,11 @@ Param (Label) | Description | Values
 --- | --- | ---
 1 (Failure unit) | The unit which is affected by the failure. | [FAILURE_UNIT](#FAILURE_UNIT) 
 2 (Failure type) | The type how the failure manifests itself. | [FAILURE_TYPE](#FAILURE_TYPE) 
-3 (Instance) | Instance affected by failure (0 to signal all). |   
+3 (Instance) | Instance affected by failure (0 to signal all). Takes precedence over Instance bitmask (param4) when not NaN. Set to NaN to use Instance bitmask instead. | min: 0 inc: 1 
+4 (Instance bitmask) | Bitmask of instances affected by the failure (bit 0 = first instance, bit 1 = second instance, etc.). Used only when Instance (param3) is NaN. | min: 0 
 
 
-### MAV_CMD_START_RX_PAIR (500) {#MAV_CMD_START_RX_PAIR}
+### MAV_CMD_START_RX_PAIR (500) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_START_RX_PAIR}
 
 Starts receiver pairing.
 
@@ -7977,7 +8214,9 @@ Param (Label) | Description | Values
 2 (RC Sub Type) | RC sub type. | [RC_SUB_TYPE](#RC_SUB_TYPE) 
 
 
-### MAV_CMD_GET_MESSAGE_INTERVAL (510) {#MAV_CMD_GET_MESSAGE_INTERVAL}
+### MAV_CMD_GET_MESSAGE_INTERVAL (510) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_GET_MESSAGE_INTERVAL}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2022-04)</span>
 
 Request the interval between messages for a particular MAVLink message ID.
 The receiver should ACK the command and then emit its response in a [MESSAGE_INTERVAL](#MESSAGE_INTERVAL) message.
@@ -7987,7 +8226,7 @@ Param (Label) | Description | Values
 1 (Message ID) | The MAVLink message ID | min: 0 max: 16777215 inc: 1 
 
 
-### MAV_CMD_SET_MESSAGE_INTERVAL (511) {#MAV_CMD_SET_MESSAGE_INTERVAL}
+### MAV_CMD_SET_MESSAGE_INTERVAL (511) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_SET_MESSAGE_INTERVAL}
 
 Set the interval between messages for a particular MAVLink message ID. This interface replaces [REQUEST_DATA_STREAM](#REQUEST_DATA_STREAM).
 
@@ -8002,7 +8241,7 @@ Param (Label) | Description | Values | Units
 7 (Response Target) | Target address of message stream (if message has target address fields). 0: Flight-stack default (recommended), 1: address of requester, 2: broadcast. | min: 0 max: 2 inc: 1 |   
 
 
-### MAV_CMD_REQUEST_MESSAGE (512) {#MAV_CMD_REQUEST_MESSAGE}
+### MAV_CMD_REQUEST_MESSAGE (512) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_MESSAGE}
 
 Request the target system(s) emit a single instance of a specified message (i.e. a "one-shot" version of [MAV_CMD_SET_MESSAGE_INTERVAL](#MAV_CMD_SET_MESSAGE_INTERVAL)).
 
@@ -8017,7 +8256,7 @@ Param (Label) | Description | Values
 7 (Response Target) | Target address for requested message (if message has target address fields). 0: Flight-stack default, 1: address of requester, 2: broadcast. | min: 0 max: 2 inc: 1 
 
 
-### MAV_CMD_REQUEST_PROTOCOL_VERSION (519) — [DEP] {#MAV_CMD_REQUEST_PROTOCOL_VERSION}
+### MAV_CMD_REQUEST_PROTOCOL_VERSION (519) — [DEP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_PROTOCOL_VERSION}
 
 <span class="warning">**DEPRECATED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2025-11)</span>
 
@@ -8029,7 +8268,9 @@ Param (Label) | Description | Values
 2 | Reserved (all remaining params) |   
 
 
-### MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES (520) {#MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES}
+### MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES (520) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2019-08)</span>
 
 Request autopilot capabilities. The receiver should ACK the command and then emit its capabilities in an [AUTOPILOT_VERSION](#AUTOPILOT_VERSION) message
 
@@ -8039,7 +8280,9 @@ Param (Label) | Description | Values
 2 | Reserved (all remaining params) |   
 
 
-### MAV_CMD_REQUEST_CAMERA_INFORMATION (521) {#MAV_CMD_REQUEST_CAMERA_INFORMATION}
+### MAV_CMD_REQUEST_CAMERA_INFORMATION (521) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_CAMERA_INFORMATION}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2019-08)</span>
 
 Request camera information ([CAMERA_INFORMATION](#CAMERA_INFORMATION)).
 
@@ -8049,7 +8292,9 @@ Param (Label) | Description | Values
 2 | Reserved (all remaining params) |   
 
 
-### MAV_CMD_REQUEST_CAMERA_SETTINGS (522) {#MAV_CMD_REQUEST_CAMERA_SETTINGS}
+### MAV_CMD_REQUEST_CAMERA_SETTINGS (522) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_CAMERA_SETTINGS}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2019-08)</span>
 
 Request camera settings ([CAMERA_SETTINGS](#CAMERA_SETTINGS)).
 
@@ -8059,7 +8304,9 @@ Param (Label) | Description | Values
 2 | Reserved (all remaining params) |   
 
 
-### MAV_CMD_REQUEST_STORAGE_INFORMATION (525) {#MAV_CMD_REQUEST_STORAGE_INFORMATION}
+### MAV_CMD_REQUEST_STORAGE_INFORMATION (525) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_STORAGE_INFORMATION}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2019-08)</span>
 
 Request storage information ([STORAGE_INFORMATION](#STORAGE_INFORMATION)). Use the command's target_component to target a specific component's storage.
 
@@ -8070,19 +8317,21 @@ Param (Label) | Description | Values
 3 | Reserved (all remaining params) |   
 
 
-### MAV_CMD_STORAGE_FORMAT (526) {#MAV_CMD_STORAGE_FORMAT}
+### MAV_CMD_STORAGE_FORMAT (526) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_STORAGE_FORMAT}
 
 Format a storage medium. Once format is complete, a [STORAGE_INFORMATION](#STORAGE_INFORMATION) message is sent. Use the command's target_component to target a specific component's storage.
 
 Param (Label) | Description | Values
 --- | --- | ---
 1 (Storage ID) | Storage ID (1 for first, 2 for second, etc.) | min: 0 inc: 1 
-2 (Format) | Format storage (and reset image log). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
-3 (Reset Image Log) | Reset Image Log (without formatting storage medium). This will reset CAMERA_CAPTURE_STATUS.image_count and CAMERA_IMAGE_CAPTURED.image_index. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
+2 (Format) | Format storage (and reset image log) (MAV_BOOL_TRUE). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
+3 (Reset Image Log) | Reset Image Log (without formatting storage medium) (MAV_BOOL_TRUE). This will reset CAMERA_CAPTURE_STATUS.image_count and CAMERA_IMAGE_CAPTURED.image_index. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 4 | Reserved (all remaining params) |   
 
 
-### MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS (527) {#MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS}
+### MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS (527) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2019-08)</span>
 
 Request camera capture status ([CAMERA_CAPTURE_STATUS](#CAMERA_CAPTURE_STATUS))
 
@@ -8092,7 +8341,9 @@ Param (Label) | Description | Values
 2 | Reserved (all remaining params) |   
 
 
-### MAV_CMD_REQUEST_FLIGHT_INFORMATION (528) {#MAV_CMD_REQUEST_FLIGHT_INFORMATION}
+### MAV_CMD_REQUEST_FLIGHT_INFORMATION (528) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_FLIGHT_INFORMATION}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2019-08)</span>
 
 Request flight information ([FLIGHT_INFORMATION](#FLIGHT_INFORMATION))
 
@@ -8102,7 +8353,7 @@ Param (Label) | Description | Values
 2 | Reserved (all remaining params) |   
 
 
-### MAV_CMD_RESET_CAMERA_SETTINGS (529) {#MAV_CMD_RESET_CAMERA_SETTINGS}
+### MAV_CMD_RESET_CAMERA_SETTINGS (529) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_RESET_CAMERA_SETTINGS}
 
 Reset all camera settings to Factory Default
 
@@ -8112,7 +8363,7 @@ Param (Label) | Description | Values
 2 (Target Camera ID) | Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission. | min: 0 max: 255 inc: 1 
 
 
-### MAV_CMD_SET_CAMERA_MODE (530) {#MAV_CMD_SET_CAMERA_MODE}
+### MAV_CMD_SET_CAMERA_MODE (530) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_SET_CAMERA_MODE}
 
 Set camera running mode. Use NaN for reserved values. GCS will send a [MAV_CMD_REQUEST_VIDEO_STREAM_STATUS](#MAV_CMD_REQUEST_VIDEO_STREAM_STATUS) command after a mode change if the camera supports video streaming.
 
@@ -8125,7 +8376,7 @@ Param (Label) | Description | Values
 7 | |   
 
 
-### MAV_CMD_SET_CAMERA_ZOOM (531) {#MAV_CMD_SET_CAMERA_ZOOM}
+### MAV_CMD_SET_CAMERA_ZOOM (531) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_SET_CAMERA_ZOOM}
 
 Set camera zoom. Camera must respond with a [CAMERA_SETTINGS](#CAMERA_SETTINGS) message (on success).
 
@@ -8137,7 +8388,7 @@ Param (Label) | Description | Values
 4 | |   
 
 
-### MAV_CMD_SET_CAMERA_FOCUS (532) {#MAV_CMD_SET_CAMERA_FOCUS}
+### MAV_CMD_SET_CAMERA_FOCUS (532) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_SET_CAMERA_FOCUS}
 
 Set camera focus. Camera must respond with a [CAMERA_SETTINGS](#CAMERA_SETTINGS) message (on success).
 
@@ -8149,7 +8400,7 @@ Param (Label) | Description | Values
 4 | |   
 
 
-### MAV_CMD_SET_STORAGE_USAGE (533) {#MAV_CMD_SET_STORAGE_USAGE}
+### MAV_CMD_SET_STORAGE_USAGE (533) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_SET_STORAGE_USAGE}
 
 Set that a particular storage is the preferred location for saving photos, videos, and/or other media (e.g. to set that an SD card is used for storing videos).
 
@@ -8164,7 +8415,7 @@ Param (Label) | Description | Values
 2 (Usage) | Usage flags | [STORAGE_USAGE_FLAG](#STORAGE_USAGE_FLAG) 
 
 
-### MAV_CMD_SET_CAMERA_SOURCE (534) {#MAV_CMD_SET_CAMERA_SOURCE}
+### MAV_CMD_SET_CAMERA_SOURCE (534) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_SET_CAMERA_SOURCE}
 
 Set camera source. Changes the camera's active sources on cameras with multiple image sensors.
 
@@ -8175,7 +8426,7 @@ Param (Label) | Description | Values
 3 (secondary source) | Secondary Source. If non-zero the second source will be displayed as picture-in-picture. | [CAMERA_SOURCE](#CAMERA_SOURCE) 
 
 
-### MAV_CMD_JUMP_TAG (600) {#MAV_CMD_JUMP_TAG}
+### MAV_CMD_JUMP_TAG (600) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_JUMP_TAG}
 
 Tagged jump target. Can be jumped to with [MAV_CMD_DO_JUMP_TAG](#MAV_CMD_DO_JUMP_TAG).
 
@@ -8184,7 +8435,7 @@ Param (Label) | Description | Values
 1 (Tag) | Tag. | min: 0 inc: 1 
 
 
-### MAV_CMD_DO_JUMP_TAG (601) {#MAV_CMD_DO_JUMP_TAG}
+### MAV_CMD_DO_JUMP_TAG (601) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_DO_JUMP_TAG}
 
 Jump to the matching tag in the mission list. Repeat this action for the specified number of times. A mission should contain a single matching tag for each jump. If this is not the case then a jump to a missing tag should complete the mission, and a jump where there are multiple matching tags should always select the one with the lowest mission sequence number.
 
@@ -8194,7 +8445,28 @@ Param (Label) | Description | Values
 2 (Repeat) | Repeat count. | min: 0 inc: 1 
 
 
-### MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW (1000) {#MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW}
+### MAV_CMD_DO_SET_GLOBAL_ORIGIN (611) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_GLOBAL_ORIGIN}
+
+Sets the GNSS coordinates of the vehicle local origin (0,0,0) position.
+
+Vehicle should emit [GPS_GLOBAL_ORIGIN](#GPS_GLOBAL_ORIGIN) irrespective of whether the origin is changed.
+This enables transform between the local coordinate frame and the global (GNSS) coordinate frame, which may be necessary when (for example) indoor and outdoor settings are connected and the MAV should move from in- to outdoor.
+This command supersedes [SET_GPS_GLOBAL_ORIGIN](#SET_GPS_GLOBAL_ORIGIN).
+Should be sent in a [COMMAND_INT](#COMMAND_INT) (Expected frame is [MAV_FRAME_GLOBAL](#MAV_FRAME_GLOBAL), and this should be assumed when sent in [COMMAND_LONG](#COMMAND_LONG)).
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
+Param (Label) | Description | Units
+--- | --- | ---
+5 (Latitude) | Latitude |   
+6 (Longitude) | Longitude |   
+7 (Altitude) | Altitude | m 
+
+
+### MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW (1000) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW}
 
 Set gimbal manager pitch/yaw setpoints (low rate command). It is possible to set combinations of the values below. E.g. an angle as well as a desired angular rate can be used to get to this angle at a certain angular rate, or an angular rate only will result in continuous turning. NaN is to be used to signal unset. Note: only the gimbal manager will react to this command - it will be ignored by a gimbal device. Use [GIMBAL_MANAGER_SET_PITCHYAW](#GIMBAL_MANAGER_SET_PITCHYAW) if you need to stream pitch/yaw setpoints at higher rate.
 
@@ -8208,7 +8480,7 @@ Param (Label) | Description | Values | Units
 7 (Gimbal device ID) | Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals). |   |   
 
 
-### MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE (1001) {#MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE}
+### MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE (1001) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_GIMBAL_MANAGER_CONFIGURE}
 
 Gimbal configuration to set which sysid/compid is in primary and secondary control.
 
@@ -8221,7 +8493,7 @@ Param (Label) | Description
 7 (Gimbal device ID) | Component ID of gimbal device to address (or 1-6 for non-MAVLink gimbal), 0 for all gimbal device components. Send command multiple times for more than one gimbal (but not all gimbals). 
 
 
-### MAV_CMD_IMAGE_START_CAPTURE (2000) {#MAV_CMD_IMAGE_START_CAPTURE}
+### MAV_CMD_IMAGE_START_CAPTURE (2000) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_IMAGE_START_CAPTURE}
 
 Start image capture sequence. [CAMERA_IMAGE_CAPTURED](#CAMERA_IMAGE_CAPTURED) must be emitted after each capture.
 
@@ -8249,7 +8521,7 @@ Param (Label) | Description | Values | Units
 7 | |   |   
 
 
-### MAV_CMD_IMAGE_STOP_CAPTURE (2001) {#MAV_CMD_IMAGE_STOP_CAPTURE}
+### MAV_CMD_IMAGE_STOP_CAPTURE (2001) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_IMAGE_STOP_CAPTURE}
 
 Stop image capture sequence.
 
@@ -8277,7 +8549,9 @@ Param (Label) | Description | Values
 7 | |   
 
 
-### MAV_CMD_REQUEST_CAMERA_IMAGE_CAPTURE (2002) {#MAV_CMD_REQUEST_CAMERA_IMAGE_CAPTURE}
+### MAV_CMD_REQUEST_CAMERA_IMAGE_CAPTURE (2002) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_CAMERA_IMAGE_CAPTURE}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2019-08)</span>
 
 Re-request a [CAMERA_IMAGE_CAPTURED](#CAMERA_IMAGE_CAPTURED) message.
 
@@ -8292,7 +8566,7 @@ Param (Label) | Description | Values
 7 | |   
 
 
-### MAV_CMD_DO_TRIGGER_CONTROL (2003) {#MAV_CMD_DO_TRIGGER_CONTROL}
+### MAV_CMD_DO_TRIGGER_CONTROL (2003) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_TRIGGER_CONTROL}
 
 Enable or disable on-board camera triggering system.
 
@@ -8304,7 +8578,7 @@ Param (Label) | Description | Values
 4 (Target Camera ID) | Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission. | min: 0 max: 255 inc: 1 
 
 
-### MAV_CMD_CAMERA_TRACK_POINT (2004) {#MAV_CMD_CAMERA_TRACK_POINT}
+### MAV_CMD_CAMERA_TRACK_POINT (2004) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_CAMERA_TRACK_POINT}
 
 If the camera supports point visual tracking ([CAMERA_CAP_FLAGS_HAS_TRACKING_POINT](#CAMERA_CAP_FLAGS_HAS_TRACKING_POINT) is set), this command allows to initiate the tracking.
 
@@ -8316,7 +8590,7 @@ Param (Label) | Description | Values
 4 (Target Camera ID) | Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission. | min: 0 max: 255 inc: 1 
 
 
-### MAV_CMD_CAMERA_TRACK_RECTANGLE (2005) {#MAV_CMD_CAMERA_TRACK_RECTANGLE}
+### MAV_CMD_CAMERA_TRACK_RECTANGLE (2005) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_CAMERA_TRACK_RECTANGLE}
 
 If the camera supports rectangle visual tracking ([CAMERA_CAP_FLAGS_HAS_TRACKING_RECTANGLE](#CAMERA_CAP_FLAGS_HAS_TRACKING_RECTANGLE) is set), this command allows to initiate the tracking.
 
@@ -8329,7 +8603,7 @@ Param (Label) | Description | Values
 5 (Target Camera ID) | Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission. | min: 0 max: 255 inc: 1 
 
 
-### MAV_CMD_CAMERA_STOP_TRACKING (2010) {#MAV_CMD_CAMERA_STOP_TRACKING}
+### MAV_CMD_CAMERA_STOP_TRACKING (2010) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_CAMERA_STOP_TRACKING}
 
 Stops ongoing tracking.
 
@@ -8338,7 +8612,7 @@ Param (Label) | Description | Values
 1 (Target Camera ID) | Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission. | min: 0 max: 255 inc: 1 
 
 
-### MAV_CMD_VIDEO_START_CAPTURE (2500) {#MAV_CMD_VIDEO_START_CAPTURE}
+### MAV_CMD_VIDEO_START_CAPTURE (2500) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_VIDEO_START_CAPTURE}
 
 Starts video capture (recording).
 
@@ -8353,7 +8627,7 @@ Param (Label) | Description | Values | Units
 7 | |   |   
 
 
-### MAV_CMD_VIDEO_STOP_CAPTURE (2501) {#MAV_CMD_VIDEO_STOP_CAPTURE}
+### MAV_CMD_VIDEO_STOP_CAPTURE (2501) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_VIDEO_STOP_CAPTURE}
 
 Stop the current video capture (recording).
 
@@ -8368,7 +8642,7 @@ Param (Label) | Description | Values
 7 | |   
 
 
-### MAV_CMD_VIDEO_START_STREAMING (2502) {#MAV_CMD_VIDEO_START_STREAMING}
+### MAV_CMD_VIDEO_START_STREAMING (2502) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_VIDEO_START_STREAMING}
 
 Start video streaming
 
@@ -8378,7 +8652,7 @@ Param (Label) | Description | Values
 2 (Target Camera ID) | Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission. | min: 0 max: 255 inc: 1 
 
 
-### MAV_CMD_VIDEO_STOP_STREAMING (2503) {#MAV_CMD_VIDEO_STOP_STREAMING}
+### MAV_CMD_VIDEO_STOP_STREAMING (2503) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_VIDEO_STOP_STREAMING}
 
 Stop the given video stream
 
@@ -8388,7 +8662,9 @@ Param (Label) | Description | Values
 2 (Target Camera ID) | Target camera ID. 7 to 255: MAVLink camera component id. 1 to 6 for cameras attached to the autopilot, which don't have a distinct component id. 0: all cameras. This is used to target specific autopilot-connected cameras. It is also used to target specific cameras when the MAV_CMD is used in a mission. | min: 0 max: 255 inc: 1 
 
 
-### MAV_CMD_REQUEST_VIDEO_STREAM_INFORMATION (2504) {#MAV_CMD_REQUEST_VIDEO_STREAM_INFORMATION}
+### MAV_CMD_REQUEST_VIDEO_STREAM_INFORMATION (2504) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_VIDEO_STREAM_INFORMATION}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2019-08)</span>
 
 Request video stream information ([VIDEO_STREAM_INFORMATION](#VIDEO_STREAM_INFORMATION))
 
@@ -8397,7 +8673,9 @@ Param (Label) | Description | Values
 1 (Stream ID) | Video Stream ID (0 for all streams, 1 for first, 2 for second, etc.) | min: 0 inc: 1 
 
 
-### MAV_CMD_REQUEST_VIDEO_STREAM_STATUS (2505) {#MAV_CMD_REQUEST_VIDEO_STREAM_STATUS}
+### MAV_CMD_REQUEST_VIDEO_STREAM_STATUS (2505) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_REQUEST_VIDEO_STREAM_STATUS}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2019-08)</span>
 
 Request video stream status ([VIDEO_STREAM_STATUS](#VIDEO_STREAM_STATUS))
 
@@ -8406,7 +8684,7 @@ Param (Label) | Description | Values
 1 (Stream ID) | Video Stream ID (0 for all streams, 1 for first, 2 for second, etc.) | min: 0 inc: 1 
 
 
-### MAV_CMD_LOGGING_START (2510) {#MAV_CMD_LOGGING_START}
+### MAV_CMD_LOGGING_START (2510) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_LOGGING_START}
 
 Request to start streaming logging data over MAVLink (see also [LOGGING_DATA](#LOGGING_DATA) message)
 
@@ -8421,7 +8699,7 @@ Param (Label) | Description | Values
 7 | Reserved (set to 0) |   
 
 
-### MAV_CMD_LOGGING_STOP (2511) {#MAV_CMD_LOGGING_STOP}
+### MAV_CMD_LOGGING_STOP (2511) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_LOGGING_STOP}
 
 Request to stop streaming log data over MAVLink
 
@@ -8436,7 +8714,7 @@ Param (Label) | Description
 7 | Reserved (set to 0) 
 
 
-### MAV_CMD_AIRFRAME_CONFIGURATION (2520) {#MAV_CMD_AIRFRAME_CONFIGURATION}
+### MAV_CMD_AIRFRAME_CONFIGURATION (2520) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_AIRFRAME_CONFIGURATION}
 
 Param (Label) | Description | Values
 --- | --- | ---
@@ -8449,13 +8727,13 @@ Param (Label) | Description | Values
 7 | |   
 
 
-### MAV_CMD_CONTROL_HIGH_LATENCY (2600) {#MAV_CMD_CONTROL_HIGH_LATENCY}
+### MAV_CMD_CONTROL_HIGH_LATENCY (2600) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_CONTROL_HIGH_LATENCY}
 
 Request to start/stop transmitting over the high latency telemetry
 
 Param (Label) | Description | Values
 --- | --- | ---
-1 (Enable) | Start transmission over high latency telemetry (MAV_BOOL_FALSE: stop transmission). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
+1 (Enable) | Start transmission over high latency telemetry (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE stops transmission. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) 
 2 | Empty |   
 3 | Empty |   
 4 | Empty |   
@@ -8464,7 +8742,7 @@ Param (Label) | Description | Values
 7 | Empty |   
 
 
-### MAV_CMD_PANORAMA_CREATE (2800) {#MAV_CMD_PANORAMA_CREATE}
+### MAV_CMD_PANORAMA_CREATE (2800) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_PANORAMA_CREATE}
 
 Create a panorama at the current position
 
@@ -8476,7 +8754,7 @@ Param (Label) | Description | Units
 4 (Vertical Speed) | Speed of the vertical rotation. | deg/s 
 
 
-### MAV_CMD_DO_VTOL_TRANSITION (3000) {#MAV_CMD_DO_VTOL_TRANSITION}
+### MAV_CMD_DO_VTOL_TRANSITION (3000) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_VTOL_TRANSITION}
 
 Request VTOL transition
 
@@ -8486,7 +8764,7 @@ Param (Label) | Description | Values
 2 (Immediate) | Force immediate transition to the specified MAV_VTOL_STATE. 1: Force immediate, 0: normal transition. Can be used, for example, to trigger an emergency "Quadchute". Caution: Can be dangerous/damage vehicle, depending on autopilot implementation of this command. |   
 
 
-### MAV_CMD_ARM_AUTHORIZATION_REQUEST (3001) {#MAV_CMD_ARM_AUTHORIZATION_REQUEST}
+### MAV_CMD_ARM_AUTHORIZATION_REQUEST (3001) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_ARM_AUTHORIZATION_REQUEST}
 
 Request authorization to arm the vehicle to a external entity, the arm authorizer is responsible to request all data that is needs from the vehicle before authorize or deny the request.
 
@@ -8498,7 +8776,7 @@ Param (Label) | Description | Values
 1 (System ID) | Vehicle system id, this way ground station can request arm authorization on behalf of any vehicle | min: 0 max: 255 inc: 1 
 
 
-### MAV_CMD_SET_GUIDED_SUBMODE_STANDARD (4000) {#MAV_CMD_SET_GUIDED_SUBMODE_STANDARD}
+### MAV_CMD_SET_GUIDED_SUBMODE_STANDARD (4000) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_SET_GUIDED_SUBMODE_STANDARD}
 
 This command sets the submode to standard guided when vehicle is in guided mode. The vehicle holds position and altitude and the user can input the desired velocities along all three axes.
 
@@ -8506,9 +8784,14 @@ Param (Label) | Description
 --- | ---
 
 
-### MAV_CMD_SET_GUIDED_SUBMODE_CIRCLE (4001) {#MAV_CMD_SET_GUIDED_SUBMODE_CIRCLE}
+### MAV_CMD_SET_GUIDED_SUBMODE_CIRCLE (4001) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_SET_GUIDED_SUBMODE_CIRCLE}
 
 This command sets submode circle when vehicle is in guided mode. Vehicle flies along a circle facing the center of the circle. The user can input the velocity along the circle and change the radius. If no input is given the vehicle will hold position.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -8520,16 +8803,19 @@ Param (Label) | Description | Units
 6 (Longitude) | Target longitude of center of circle in CIRCLE_MODE | degE7 
 
 
-### MAV_CMD_CONDITION_GATE (4501) — [WIP] {#MAV_CMD_CONDITION_GATE}
-
-<span class="warning">**WORK IN PROGRESS**: Do not use in stable production environments (it may change).</span>
+### MAV_CMD_CONDITION_GATE (4501) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_CONDITION_GATE}
 
 Delay mission state machine until gate has been reached.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
 1 (Geometry) | Geometry: 0: orthogonal to path between previous and next waypoint. | min: 0 inc: 1 |   
-2 (UseAltitude) | Use altitude (MAV_BOOL_FALSE: ignore altitude). Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
+2 (UseAltitude) | Use altitude (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE ignores altitude. Values not equal to 0 or 1 are invalid. | [MAV_BOOL](#MAV_BOOL) |   
 3 | Empty |   |   
 4 | Empty |   |   
 5 (Latitude) | Latitude |   |   
@@ -8537,9 +8823,14 @@ Param (Label) | Description | Values | Units
 7 (Altitude) | Altitude |   | m 
 
 
-### MAV_CMD_NAV_FENCE_RETURN_POINT (5000) {#MAV_CMD_NAV_FENCE_RETURN_POINT}
+### MAV_CMD_NAV_FENCE_RETURN_POINT (5000) <span class="VPBadge warning" title="Can be used in a geofence plan">Fence</span> {#MAV_CMD_NAV_FENCE_RETURN_POINT}
 
 Fence return point (there can only be one such point in a geofence definition). If rally points are supported they should be used instead.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -8552,11 +8843,16 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude | m 
 
 
-### MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION (5001) {#MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION}
+### MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION (5001) <span class="VPBadge warning" title="Can be used in a geofence plan">Fence</span> {#MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION}
 
 Fence vertex for an inclusion polygon (the polygon must not be self-intersecting). The vehicle must stay within this area. Minimum of 3 vertices required.
 
 The vertices for a polygon must be sent sequentially, each with param1 set to the total number of vertices in the polygon.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values
 --- | --- | ---
@@ -8569,11 +8865,16 @@ Param (Label) | Description | Values
 7 | Reserved |   
 
 
-### MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION (5002) {#MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION}
+### MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION (5002) <span class="VPBadge warning" title="Can be used in a geofence plan">Fence</span> {#MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION}
 
 Fence vertex for an exclusion polygon (the polygon must not be self-intersecting). The vehicle must stay outside this area. Minimum of 3 vertices required.
 
 The vertices for a polygon must be sent sequentially, each with param1 set to the total number of vertices in the polygon.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values
 --- | --- | ---
@@ -8586,9 +8887,14 @@ Param (Label) | Description | Values
 7 | Reserved |   
 
 
-### MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION (5003) {#MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION}
+### MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION (5003) <span class="VPBadge warning" title="Can be used in a geofence plan">Fence</span> {#MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION}
 
 Circular fence area. The vehicle must stay inside this area.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -8601,9 +8907,14 @@ Param (Label) | Description | Values | Units
 7 | Reserved |   |   
 
 
-### MAV_CMD_NAV_FENCE_CIRCLE_EXCLUSION (5004) {#MAV_CMD_NAV_FENCE_CIRCLE_EXCLUSION}
+### MAV_CMD_NAV_FENCE_CIRCLE_EXCLUSION (5004) <span class="VPBadge warning" title="Can be used in a geofence plan">Fence</span> {#MAV_CMD_NAV_FENCE_CIRCLE_EXCLUSION}
 
 Circular fence area. The vehicle must stay outside this area.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -8616,9 +8927,14 @@ Param (Label) | Description | Units
 7 | Reserved |   
 
 
-### MAV_CMD_NAV_RALLY_POINT (5100) {#MAV_CMD_NAV_RALLY_POINT}
+### MAV_CMD_NAV_RALLY_POINT (5100) <span class="VPBadge warning" title="Can be used in a rally point plan">Rally</span> {#MAV_CMD_NAV_RALLY_POINT}
 
 Rally point. You can have multiple rally points defined.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -8631,7 +8947,9 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude | m 
 
 
-### MAV_CMD_UAVCAN_GET_NODE_INFO (5200) {#MAV_CMD_UAVCAN_GET_NODE_INFO}
+### MAV_CMD_UAVCAN_GET_NODE_INFO (5200) — [SUP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_UAVCAN_GET_NODE_INFO}
+
+<span class="warning">**SUPERSEDED:** Replaced By [MAV_CMD_REQUEST_MESSAGE](#MAV_CMD_REQUEST_MESSAGE) (2026-05)</span>
 
 Commands the vehicle to respond with a sequence of messages [UAVCAN_NODE_INFO](#UAVCAN_NODE_INFO), one message per every UAVCAN node that is online. Note that some of the response messages can be lost, which the receiver can detect easily by checking whether every received [UAVCAN_NODE_STATUS](#UAVCAN_NODE_STATUS) has a matching message [UAVCAN_NODE_INFO](#UAVCAN_NODE_INFO) received earlier; if not, this command should be sent again in order to request re-transmission of the node information messages.
 
@@ -8646,7 +8964,7 @@ Param (Label) | Description
 7 | Reserved (set to 0) 
 
 
-### MAV_CMD_DO_SET_SAFETY_SWITCH_STATE (5300) {#MAV_CMD_DO_SET_SAFETY_SWITCH_STATE}
+### MAV_CMD_DO_SET_SAFETY_SWITCH_STATE (5300) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_SET_SAFETY_SWITCH_STATE}
 
 Change state of safety switch.
 
@@ -8661,7 +8979,7 @@ Param (Label) | Description | Values
 7 | Empty. |   
 
 
-### MAV_CMD_DO_ADSB_OUT_IDENT (10001) {#MAV_CMD_DO_ADSB_OUT_IDENT}
+### MAV_CMD_DO_ADSB_OUT_IDENT (10001) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_ADSB_OUT_IDENT}
 
 Trigger the start of an ADSB-out IDENT. This should only be used when requested to do so by an Air Traffic Controller in controlled airspace. This starts the IDENT which is then typically held for 18 seconds by the hardware per the Mode A, C, and S transponder spec.
 
@@ -8676,9 +8994,16 @@ Param (Label) | Description
 7 | Reserved (set to 0) 
 
 
-### MAV_CMD_PAYLOAD_PREPARE_DEPLOY (30001) {#MAV_CMD_PAYLOAD_PREPARE_DEPLOY}
+### MAV_CMD_PAYLOAD_PREPARE_DEPLOY (30001) — [DEP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_PAYLOAD_PREPARE_DEPLOY}
+
+<span class="warning">**DEPRECATED:**(2021-06) — Last implemented in PX4 v1.10.2. Removed PX4 v1.11.0. Never implemented in ArduPilot.)</span>
 
 Deploy payload on a Lat / Lon / Alt position. This includes the navigation to reach the required release position and velocity.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Values | Units
 --- | --- | --- | ---
@@ -8691,7 +9016,9 @@ Param (Label) | Description | Values | Units
 7 (Altitude) | Altitude (MSL) |   | m 
 
 
-### MAV_CMD_PAYLOAD_CONTROL_DEPLOY (30002) {#MAV_CMD_PAYLOAD_CONTROL_DEPLOY}
+### MAV_CMD_PAYLOAD_CONTROL_DEPLOY (30002) — [DEP] <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_PAYLOAD_CONTROL_DEPLOY}
+
+<span class="warning">**DEPRECATED:**(2021-06) — Last implemented in PX4 v1.10.2. Removed PX4 v1.11.0. Never implemented in ArduPilot.)</span>
 
 Control the payload deployment.
 
@@ -8706,10 +9033,15 @@ Param (Label) | Description | Values
 7 | Reserved |   
 
 
-### MAV_CMD_WAYPOINT_USER_1 (31000) {#MAV_CMD_WAYPOINT_USER_1}
+### MAV_CMD_WAYPOINT_USER_1 (31000) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_WAYPOINT_USER_1}
 
 User defined waypoint item. Ground Station will show the Vehicle as flying through this item.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | User defined |   
@@ -8721,10 +9053,15 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude (MSL) | m 
 
 
-### MAV_CMD_WAYPOINT_USER_2 (31001) {#MAV_CMD_WAYPOINT_USER_2}
+### MAV_CMD_WAYPOINT_USER_2 (31001) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_WAYPOINT_USER_2}
 
 User defined waypoint item. Ground Station will show the Vehicle as flying through this item.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | User defined |   
@@ -8736,10 +9073,15 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude (MSL) | m 
 
 
-### MAV_CMD_WAYPOINT_USER_3 (31002) {#MAV_CMD_WAYPOINT_USER_3}
+### MAV_CMD_WAYPOINT_USER_3 (31002) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_WAYPOINT_USER_3}
 
 User defined waypoint item. Ground Station will show the Vehicle as flying through this item.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | User defined |   
@@ -8751,10 +9093,15 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude (MSL) | m 
 
 
-### MAV_CMD_WAYPOINT_USER_4 (31003) {#MAV_CMD_WAYPOINT_USER_4}
+### MAV_CMD_WAYPOINT_USER_4 (31003) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_WAYPOINT_USER_4}
 
 User defined waypoint item. Ground Station will show the Vehicle as flying through this item.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | User defined |   
@@ -8766,10 +9113,15 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude (MSL) | m 
 
 
-### MAV_CMD_WAYPOINT_USER_5 (31004) {#MAV_CMD_WAYPOINT_USER_5}
+### MAV_CMD_WAYPOINT_USER_5 (31004) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_WAYPOINT_USER_5}
 
 User defined waypoint item. Ground Station will show the Vehicle as flying through this item.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | User defined |   
@@ -8781,10 +9133,15 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude (MSL) | m 
 
 
-### MAV_CMD_SPATIAL_USER_1 (31005) {#MAV_CMD_SPATIAL_USER_1}
+### MAV_CMD_SPATIAL_USER_1 (31005) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_SPATIAL_USER_1}
 
 User defined spatial item. Ground Station will not show the Vehicle as flying through this item. Example: ROI item.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | User defined |   
@@ -8796,10 +9153,15 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude (MSL) | m 
 
 
-### MAV_CMD_SPATIAL_USER_2 (31006) {#MAV_CMD_SPATIAL_USER_2}
+### MAV_CMD_SPATIAL_USER_2 (31006) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_SPATIAL_USER_2}
 
 User defined spatial item. Ground Station will not show the Vehicle as flying through this item. Example: ROI item.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | User defined |   
@@ -8811,10 +9173,15 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude (MSL) | m 
 
 
-### MAV_CMD_SPATIAL_USER_3 (31007) {#MAV_CMD_SPATIAL_USER_3}
+### MAV_CMD_SPATIAL_USER_3 (31007) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_SPATIAL_USER_3}
 
 User defined spatial item. Ground Station will not show the Vehicle as flying through this item. Example: ROI item.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | User defined |   
@@ -8826,10 +9193,15 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude (MSL) | m 
 
 
-### MAV_CMD_SPATIAL_USER_4 (31008) {#MAV_CMD_SPATIAL_USER_4}
+### MAV_CMD_SPATIAL_USER_4 (31008) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_SPATIAL_USER_4}
 
 User defined spatial item. Ground Station will not show the Vehicle as flying through this item. Example: ROI item.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | User defined |   
@@ -8841,10 +9213,15 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude (MSL) | m 
 
 
-### MAV_CMD_SPATIAL_USER_5 (31009) {#MAV_CMD_SPATIAL_USER_5}
+### MAV_CMD_SPATIAL_USER_5 (31009) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_SPATIAL_USER_5}
 
 User defined spatial item. Ground Station will not show the Vehicle as flying through this item. Example: ROI item.
 
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
+
 Param (Label) | Description | Units
 --- | --- | ---
 1 | User defined |   
@@ -8856,7 +9233,7 @@ Param (Label) | Description | Units
 7 (Altitude) | Altitude (MSL) | m 
 
 
-### MAV_CMD_USER_1 (31010) {#MAV_CMD_USER_1}
+### MAV_CMD_USER_1 (31010) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_USER_1}
 
 User defined command. Ground Station will not show the Vehicle as flying through this item. Example: [MAV_CMD_DO_SET_PARAMETER](#MAV_CMD_DO_SET_PARAMETER) item.
 
@@ -8871,7 +9248,7 @@ Param (Label) | Description
 7 | User defined 
 
 
-### MAV_CMD_USER_2 (31011) {#MAV_CMD_USER_2}
+### MAV_CMD_USER_2 (31011) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_USER_2}
 
 User defined command. Ground Station will not show the Vehicle as flying through this item. Example: [MAV_CMD_DO_SET_PARAMETER](#MAV_CMD_DO_SET_PARAMETER) item.
 
@@ -8886,7 +9263,7 @@ Param (Label) | Description
 7 | User defined 
 
 
-### MAV_CMD_USER_3 (31012) {#MAV_CMD_USER_3}
+### MAV_CMD_USER_3 (31012) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_USER_3}
 
 User defined command. Ground Station will not show the Vehicle as flying through this item. Example: [MAV_CMD_DO_SET_PARAMETER](#MAV_CMD_DO_SET_PARAMETER) item.
 
@@ -8901,7 +9278,7 @@ Param (Label) | Description
 7 | User defined 
 
 
-### MAV_CMD_USER_4 (31013) {#MAV_CMD_USER_4}
+### MAV_CMD_USER_4 (31013) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_USER_4}
 
 User defined command. Ground Station will not show the Vehicle as flying through this item. Example: [MAV_CMD_DO_SET_PARAMETER](#MAV_CMD_DO_SET_PARAMETER) item.
 
@@ -8916,7 +9293,7 @@ Param (Label) | Description
 7 | User defined 
 
 
-### MAV_CMD_USER_5 (31014) {#MAV_CMD_USER_5}
+### MAV_CMD_USER_5 (31014) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> {#MAV_CMD_USER_5}
 
 User defined command. Ground Station will not show the Vehicle as flying through this item. Example: [MAV_CMD_DO_SET_PARAMETER](#MAV_CMD_DO_SET_PARAMETER) item.
 
@@ -8931,7 +9308,7 @@ Param (Label) | Description
 7 | User defined 
 
 
-### MAV_CMD_CAN_FORWARD (32000) {#MAV_CMD_CAN_FORWARD}
+### MAV_CMD_CAN_FORWARD (32000) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_CAN_FORWARD}
 
 Request forwarding of CAN packets from the given CAN bus to this component via this MAVLink channel. CAN Frames are sent using [CAN_FRAME](#CAN_FRAME) and [CANFD_FRAME](#CANFD_FRAME) messages
 
@@ -8946,7 +9323,7 @@ Param (Label) | Description
 7 | Empty. 
 
 
-### MAV_CMD_FIXED_MAG_CAL_YAW (42006) {#MAV_CMD_FIXED_MAG_CAL_YAW}
+### MAV_CMD_FIXED_MAG_CAL_YAW (42006) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_FIXED_MAG_CAL_YAW}
 
 Magnetometer calibration based on provided known yaw. This allows for fast calibration using WMM field tables in the vehicle, given only the known yaw of the vehicle. If Latitude and longitude are both zero then use the current vehicle location.
 
@@ -8961,7 +9338,7 @@ Param (Label) | Description | Units
 7 | Empty. |   
 
 
-### MAV_CMD_DO_WINCH (42600) {#MAV_CMD_DO_WINCH}
+### MAV_CMD_DO_WINCH (42600) <span class="VPBadge tip" title="Can be used as a mission item">Mission</span> <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_DO_WINCH}
 
 Command to operate winch.
 
@@ -8976,9 +9353,46 @@ Param (Label) | Description | Values | Units
 7 | Empty. |   |   
 
 
-### MAV_CMD_EXTERNAL_POSITION_ESTIMATE (43003) {#MAV_CMD_EXTERNAL_POSITION_ESTIMATE}
+### MAV_CMD_GUIDED_CHANGE_SPEED (43000) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_GUIDED_CHANGE_SPEED}
+
+Change flight speed at a given rate. This slews the vehicle at a controllable rate between it's previous speed and the new one.
+
+Param (Label) | Description | Values | Units
+--- | --- | --- | ---
+1 (speed type) | Airspeed or groundspeed. | [SPEED_TYPE](#SPEED_TYPE) |   
+2 (speed target) | Target Speed |   | m/s 
+3 (speed rate-of-change) | Acceleration rate, 0 to take effect instantly |   | m/s/s 
+
+
+### MAV_CMD_GUIDED_CHANGE_ALTITUDE (43001) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_GUIDED_CHANGE_ALTITUDE}
+
+Change target altitude at a given rate. This slews the vehicle at a controllable rate between it's previous altitude and the new one.
+
+Param (Label) | Description | Values | Units
+--- | --- | --- | ---
+3 (alt rate-of-change) | Rate of change, toward new altitude. 0 for maximum rate change. Positive numbers only, as negative numbers will not converge on the new target alt. | min: 0 | m/s 
+7 (target alt) | Target Altitude |   | m 
+
+
+### MAV_CMD_GUIDED_CHANGE_HEADING (43002) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_GUIDED_CHANGE_HEADING}
+
+Change to target direction at a given rate, overriding previous heading/s. This slews the vehicle at a controllable rate between its previous heading and the new one.
+
+Param (Label) | Description | Values | Units
+--- | --- | --- | ---
+1 (Heading Type) | Course-over-ground or raw vehicle heading. | [HEADING_TYPE](#HEADING_TYPE) |   
+2 (Heading Target) | Target heading. | min: 0 max: 359.99 | deg 
+3 (Heading Rate of Change) | Maximum centripetal acceleration, i.e. rate of change toward new heading. |   | deg/s 
+
+
+### MAV_CMD_EXTERNAL_POSITION_ESTIMATE (43003) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_EXTERNAL_POSITION_ESTIMATE}
 
 Provide an external position estimate for use when dead-reckoning. This is meant to be used for occasional position resets that may be provided by a external system such as a remote pilot using landmarks over a video link.
+
+::: tip
+Use [COMMAND_INT](common.md#COMMAND_INT)/[MISSION_ITEM_INT](common.md#MISSION_ITEM_INT) by preference — these require latitude/longitude values scaled by `1E7` (for greater precision).
+:::
+
 
 Param (Label) | Description | Units
 --- | --- | ---
@@ -8989,5 +9403,19 @@ Param (Label) | Description | Units
 5 (Latitude) | Latitude |   
 6 (Longitude) | Longitude |   
 7 (Altitude) | Altitude, not used. Should be sent as NaN. May be supported in a future version of this message. | m 
+
+
+### MAV_CMD_EXTERNAL_WIND_ESTIMATE (43004) <span class="VPBadge info" title="Can be sent as a command (COMMAND_INT/COMMAND_LONG)">Command</span> {#MAV_CMD_EXTERNAL_WIND_ESTIMATE}
+
+Set an external estimate of wind direction and speed.
+
+This might be used to provide an initial wind estimate to the estimator (EKF) in the case where the vehicle is wind dead-reckoning, extending the time when operating without GPS before position drift builds to an unsafe level. For this use case the command might reasonably be sent every few minutes when operating at altitude, and the value is cleared if the estimator resets itself.
+
+Param (Label) | Description | Values | Units
+--- | --- | --- | ---
+1 (Wind speed) | Horizontal wind speed. | min: 0 | m/s 
+2 (Wind speed accuracy) | Estimated 1 sigma accuracy of wind speed. Set to NaN if unknown. |   | m/s 
+3 (Direction) | Azimuth (relative to true north) from where the wind is blowing. | min: 0 max: 360 | deg 
+4 (Direction accuracy) | Estimated 1 sigma accuracy of wind direction. Set to NaN if unknown. |   | deg 
 
 

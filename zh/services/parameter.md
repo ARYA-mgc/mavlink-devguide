@@ -13,6 +13,13 @@ The key/value pair has a number of important properties:
 - Adding a parameter only requires changes to the system with parameters.
   A GCS that loads the parameters, and the MAVLink communication libraries, should not require any changes.
 
+:::tip
+This protocol reads and writes each parameter in an individual MAVLink message, with ACKs and other procedural overhead.
+Components that support it for upload and/or download can send the parameter set as a single packed file instead, which is significantly faster and more robust on low-bandwidth links — see [Parameters over MAVLink FTP](../services/parameter_ftp.md).
+
+The parameter protocol should still be preferred for reading and writing individual parameters.
+:::
+
 ## Message/Enum Summary
 
 | 消息                                                                                                                                      | 描述                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -21,10 +28,12 @@ The key/value pair has a number of important properties:
 | <a id="PARAM_REQUEST_READ"></a>[PARAM_REQUEST_READ](../messages/common.md#PARAM_REQUEST_READ) | Request a single parameter. The recipient broadcasts the specified parameter value using [PARAM_VALUE](#PARAM_VALUE).                                                                                                                                                                                                                                                    |
 | <a id="PARAM_SET"></a>[PARAM_SET](../messages/common.md#PARAM_SET)                                                 | Send command to set a specified parameter to a value. After the value has been set (whether successful or not), the recipient should broadcast the current value using [PARAM_VALUE](#PARAM_VALUE).                                                                                                                                                   |
 | <a id="PARAM_VALUE"></a>[PARAM_VALUE](../messages/common.md#PARAM_VALUE)                                           | The current value of a parameter, broadcast in response to a request to get one or more parameters ([PARAM_REQUEST_READ](#PARAM_REQUEST_READ), [PARAM_REQUEST_LIST](#PARAM_REQUEST_LIST)) or whenever a parameter is set ([PARAM_SET](#PARAM_SET)) or changes. |
+| <a id="PARAM_ERROR"></a>[PARAM_ERROR](../messages/common.md#PARAM_ERROR)                                           | Parameter set/get error. Returned in response to an error in the parameter protocol, for example failing to set a parameter because it does not exist.                                                                                                                                                                                                                                        |
 
-| Enum                                                                                                                        | 描述                                                                                                                                                                                                                                                                                                                                                 |
-| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| <a id="MAV_PARAM_TYPE"></a>[MAV_PARAM_TYPE](../messages/common.md#MAV_PARAM_TYPE) | [PARAM_SET](#PARAM_SET) and [PARAM_VALUE](#PARAM_VALUE) store/encode parameter values within a `float` field. This type conveys the real type of the encoded parameter value, e.g. `MAV_PARAM_TYPE_UINT16`, `MAV_PARAM_TYPE_INT32`, etc. |
+| Enum                                                                                                                           | 描述                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <a id="MAV_PARAM_TYPE"></a>[MAV_PARAM_TYPE](../messages/common.md#MAV_PARAM_TYPE)    | [PARAM_SET](#PARAM_SET) and [PARAM_VALUE](#PARAM_VALUE) store/encode parameter values within a `float` field. This type conveys the real type of the encoded parameter value, e.g. `MAV_PARAM_TYPE_UINT16`, `MAV_PARAM_TYPE_INT32`, etc. |
+| <a id="MAV_PARAM_ERROR"></a>[MAV_PARAM_ERROR](../messages/common.md#MAV_PARAM_ERROR) | Parameter protocol error types, as provided in [PARAM_ERROR](#PARAM_ERROR).                                                                                                                                                                                                                                   |
 
 | Flags                                                                                                                                                                                                                                                                                                  | 描述                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -47,6 +56,7 @@ To use the protocol in this case, a connected system would need to have prior kn
 Parameters names/ids are set in the `param_id` field of messages where they are used.
 The `param_id` string can store up to 16 characters.
 The string is terminated with a NULL (`\0`) character if there are less than 16 human-readable chars, and without a null termination byte if the length is exactly 16 chars.
+The string is encoded as 7-bit ASCII.
 
 ## Parameter Encoding {#parameter_encoding}
 
@@ -135,13 +145,13 @@ If a component can add parameters during (or after) initial synchronization the 
 If working with a non-compliant component, the risk of problems when working with parameters can be _reduced_ (but not removed) if:
 
 - The `param_id` is used to read parameters where possible (the mapping of `param_index` to a particular parameter might change on systems where parameters can be added/removed).
-- [PARAM_VALUE.param_count](../messages/common.md#PARAM_VALUE) is monitored and the parameter set re-sychronised on change.
+- [PARAM_VALUE.param_count](../messages/common.md#PARAM_VALUE) is monitored and the parameter set re-synchronised on change.
 
 ### Parameter Synchronisation Can Fail {#monitoring_unreliable}
 
 A GCS (or other component) that wants to [cache parameters](#parameter_caching) with a component and keep them synchronised, should first get all parameters, and then track any new parameter changes by monitoring for `PARAM_VALUE` messages (updating their internal list appropriately).
 
-This works for the originator of a parameter change, which can resend the request if an expected `PARAM_VALUE` is not recieved.
+This works for the originator of a parameter change, which can resend the request if an expected `PARAM_VALUE` is not received.
 This approach may fail for components that did not originate the change, as they will not know about updates they do not receive (i.e. if messages are dropped).
 
 A component may mitigate this risk by, for example, sending the `PARAM_VALUE` multiple times after a parameter is changed.
@@ -153,6 +163,7 @@ This section defines the state machine/message sequences for all parameter opera
 ### Read All Parameters {#read_all}
 
 The read-all operation is started by sending the [PARAM_REQUEST_LIST](../messages/common.md#PARAM_REQUEST_LIST) message.
+
 The target component must start to broadcast the parameters individually in `PARAM_VALUE` messages after receiving this message.
 The drone should allow a pause after sending each parameter to ensure that the operation doesn't consume all of the available link bandwidth (30 - 50 percent of the bandwidth is reasonable).
 
@@ -215,9 +226,9 @@ The sequence of operations is:
 The drone may restart the sequence if the `PARAM_VALUE` acknowledgment is not received within the timeout.
 
 :::info
-There is no formal way for the drone to signal when an invalid parameter is requested (i.e. for a parameter name or id that does not exist).
-In this case the drone _should_ emit [STATUS_TEXT](../messages/common.md#STATUS_TEXT).
-The GCS may monitor for the specific notification, but will otherwise fail the request after any timeout/resend cycle completes.
+If an invalid parameter is requested (i.e. for a parameter name or id that does not exist) the drone should emit [PARAM_ERROR](#PARAM_ERROR) with `error` set to [MAV_PARAM_ERROR_DOES_NOT_EXIST](../messages/common.md#MAV_PARAM_ERROR_DOES_NOT_EXIST).
+Older implementations may instead emit [STATUSTEXT](../messages/common.md#STATUSTEXT).
+The GCS may monitor for these notifications, but will otherwise fail the request after any timeout/resend cycle completes.
 :::
 
 ### Write Parameters {#write}
@@ -242,7 +253,7 @@ The sequence of operations is:
 
 1. GCS (client) sends [PARAM_SET](../messages/common.md#PARAM_VALUE) specifying the param name to update and its new value (also target system/component and the param type).
 
-2. GCS starts timout waiting for acknowledgment (in the form of a [PARAM_VALUE](../messages/common.md#PARAM_VALUE) message).
+2. GCS starts timeout waiting for acknowledgment (in the form of a [PARAM_VALUE](../messages/common.md#PARAM_VALUE) message).
 
 3. Drone writes parameter and responds by _broadcasting_ a `PARAM_VALUE` containing the updated parameter value to all components/systems.
 
@@ -276,13 +287,13 @@ PX4 provides an addition off-spec mechanism that allows a GCS to _cache_ paramet
 This significantly reduces ready-to-use time for the GCS if parameters have not been changed since the previous parameter sync.
 The way that this mechanism works is that when the list of parameters is requested, PX4 first sends a `PARAM_VALUE` with the `param_index` of `INT16_MAX` (in code, referred to as `PARAM_HASH`) containing a _hash_ of the parameter set.
 
-This hash is calculated by computing the [MAVLink CRC32](../guide/crc.md) over all param names and values (see the `param_hash_check()` in source [here](https://github.com/PX4/Firmware/blob/v1.9.0-alpha/src/lib/parameters/parameters.cpp#L1329)).
+This hash is calculated by computing the [MAVLink CRC32](../guide/crc.md) over all param names and values (see the `param_hash_check()` in source [here](https://github.com/PX4/PX4-Autopilot/blob/v1.9.0-alpha/src/lib/parameters/parameters.cpp#L1329)).
 If the GCS has a matching hash value it can immediately start using its cached parameters (rather than having to wait while all the rest of the parameters upload).
 
 Source files:
 
-- [src/modules/mavlink/mavlink_parameters.cpp](https://github.com/PX4/Firmware/blob/master/src/modules/mavlink/mavlink_parameters.cpp)
-- [src/modules/mavlink/mavlink_parameters.h](https://github.com/PX4/Firmware/blob/master/src/modules/mavlink/mavlink_parameters.h)
+- [src/modules/mavlink/mavlink_parameters.cpp](https://github.com/PX4/PX4-Autopilot/blob/main/src/modules/mavlink/mavlink_parameters.cpp)
+- [src/modules/mavlink/mavlink_parameters.h](https://github.com/PX4/PX4-Autopilot/blob/main/src/modules/mavlink/mavlink_parameters.h)
 
 ### ArduPilot
 
